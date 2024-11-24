@@ -1,6 +1,8 @@
 #include "bus.h"
 
-Bus::Bus() = default;
+#include "cpu.h"
+
+Bus::Bus(): cpu{this} {}
 
 Bus::~Bus() {}
 
@@ -10,7 +12,7 @@ void Bus::write (uint16_t adr, uint8_t data) {
     }
 }
 
-uint8_t Bus::read (uint16_t adr, bool bReadOnly = false) const {
+uint8_t Bus::read (uint16_t adr, bool bReadOnly) const {
     if (adr >= 0x0000 && adr <= 0xFFFF) {
         return ram[adr];
     }

@@ -3,7 +3,6 @@
 
 #include <cstdint>
 
-
 // all opcodes (possible ways of optimization in future)
 enum class Opcode: uint8_t {
     BRK = 0x00,
@@ -124,8 +123,8 @@ enum class Opcode: uint8_t {
     STY_abs = 0x8C,
     LDY_abs = 0xAC,
     LDY_absX = 0xBC,
-    CPY_abs = 0xCC,
-    CP_absY = 0xEC,
+    CP_absY = 0xCC,
+    CP_absX = 0xEC,
     ORA_abs = 0x0D,
     ORA_absX = 0x1D,
     AND_abs = 0x2D,
@@ -159,25 +158,62 @@ enum class Opcode: uint8_t {
     INC_absX = 0xFE
 };
 
-class Bus;
+enum FLAGS {
+    C = 1 << 0, // Carry Bit
+    Z = 1 << 1, // Zero
+    I = 1 << 2, // Disable Interrupts
+    D = 1 << 3, // Decimal mode
+    B = 1 << 4, // Break
+    U = 1 << 5, // Unused
+    V = 1 << 6, // Overflow
+    N = 1 << 7, // Negative
+};
+
+class Bus;  // forward declaration for Bus
 
 // CPU is owned by Bus
 struct Cpu {
 
-    uint8_t accumulator;
-    uint8_t x;
-    uint8_t y;
+    uint8_t accumulator{0x00};
+    uint8_t x{0x00}; // y register
+    uint8_t y{0x00}; // x register
 
-    uint8_t stack_pointer;
-    uint16_t PC;
-    uint8_t status;
+    uint8_t stack_pointer{0x00}; // top of stack. Stack spans addresses: 0x0100 to 0x01FF
+    uint16_t PC{0x0000}; // program counter
+    uint8_t status{0x00}; // flags state
+    uint8_t fetched{0x00};
+    uint8_t cycles{0x00};
+    uint8_t opcode{0x00};
 
     // Pointer to Bus it's a part of
-    Bus *bus;
+    Bus *bus{nullptr};
+    Cpu(Bus *bus);
+    ~Cpu();
+    void write(uint16_t adr, uint8_t val);
+    uint8_t read(uint16_t adr) const;
 
+    // get the status of the wanted flag
+    uint8_t get_flag(FLAGS flag) const;
 
+    // toggle flag on or off
+    void set_flag(FLAGS flag, bool on);
+    void clock();
+    
+    // sets everything back to default parameters
+    void reset();
+    // if I flag is 0, irq is triggered at the end of instruction
+    void irq();
+    void nmi();
+
+    uint8_t fetch();
+
+    uint8_t execute_opcode(Opcode opcode);
+
+    void push(uint8_t val);
+    uint8_t pull();
 };
 
+uint16_t convertTo_16_bit(uint8_t high, uint8_t low);
 
 #endif
 
