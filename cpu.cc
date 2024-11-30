@@ -132,56 +132,205 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             PC = new_adr;
             break;
         }
-        case Opcode::BPL: 
+        case Opcode::BPL: {
             cycles = 2; 
+            additional = relative();
+
+            if (get_flag(FLAGS::N) == 0) {
+                cycles++;
+
+                adr = PC + adr_relative;
+
+                // if high bytes are affected we add a cycle (not sure why)
+                if ((adr & 0xFF00) != (PC & 0xFF0)) cycles++;
+
+                PC = adr;
+            }
+
+            op_result = 0;
             break;
-        case Opcode::JSR:
+        }
+        case Opcode::JSR: {
+            cycles = 6;
+            additional = absolute();
+            push(get_high(PC));
+            push(get_low(PC));
+            break;
+        }
+        case Opcode::BMI: {
+            cycles = 2; 
+            additional = relative();
+
+            if (get_flag(FLAGS::N) == 1) {
+                cycles++;
+
+                adr = PC + adr_relative;
+
+                // if high bytes are affected we add a cycle (not sure why)
+                if ((adr & 0xFF00) != (PC & 0xFF0)) cycles++;
+
+                PC = adr;
+            }
+
+            op_result = 0;
+            break;
+        }
+        case Opcode::RTI: {
             cycles = 6; 
+            status = pull();
+            uint8_t low = pull();
+            uint8_t high = pull();
+
+            PC = convertTo_16_bit(high, low);
             break;
-        case Opcode::BMI:
+        }
+        case Opcode::BVC: {
             cycles = 2; 
+            additional = relative();
+
+            if (get_flag(FLAGS::V) == 0) {
+                cycles++;
+
+                adr = PC + adr_relative;
+
+                // if high bytes are affected we add a cycle (not sure why)
+                if ((adr & 0xFF00) != (PC & 0xFF0)) cycles++;
+
+                PC = adr;
+            }
+
+            op_result = 0;
             break;
-        case Opcode::RTI:
+        }
+        case Opcode::RTS: {
             cycles = 6; 
+            uint8_t low = pull();
+            uint8_t high = pull();
+
+            PC = convertTo_16_bit(high, low);
             break;
-        case Opcode::BVC:
+        }
+        case Opcode::BVS: {
             cycles = 2; 
+            additional = relative();
+
+            if (get_flag(FLAGS::V) == 1) {
+                cycles++;
+
+                adr = PC + adr_relative;
+
+                // if high bytes are affected we add a cycle (not sure why)
+                if ((adr & 0xFF00) != (PC & 0xFF0)) cycles++;
+
+                PC = adr;
+            }
+
+            op_result = 0;
             break;
-        case Opcode::RTS:
-            cycles = 6; 
+        }
+        case Opcode::BCC: {
+            cycles = 2;
+            additional = relative();
+
+            if (get_flag(FLAGS::C) == 0) {
+                cycles++;
+
+                adr = PC + adr_relative;
+
+                // if high bytes are affected we add a cycle (not sure why)
+                if ((adr & 0xFF00) != (PC & 0xFF0)) cycles++;
+
+                PC = adr;
+            }
+
+            op_result = 0;
             break;
-        case Opcode::BVS:
+        }
+        case Opcode::LD_immY: {
             cycles = 2; 
-            break;
-        case Opcode::BCC:
-            cycles = 2; 
-            break;
-        case Opcode::LD_immY:
-            cycles = 2; 
-            break;
-        case Opcode::BCS:
+
+            uint8_t val = read(PC++);
+
+            y = val;
+
+            set_flag(FLAGS::Z, y == 0x00);
+            set_flag(FLAGS::N, y >> 7 == 1);
+            return 0;
+        }
+        case Opcode::BCS: {
             cycles = 2;
 
             additional = relative();
             op_result = BCS();
             break;
-        case Opcode::CP_immY:
+        }
+        case Opcode::CP_immY: {
             cycles = 2; 
+            uint8_t val = read(PC++);
+
+            uint8_t res = y - val;
+
+            set_flag(FLAGS::Z, res == 0x00);
+            set_flag(FLAGS::C, y >= val);
+            set_flag(FLAGS::N, res >> 7 == 1);
             break;
-        case Opcode::BNE:
+        }
+        case Opcode::BNE: {
             cycles = 2; 
+            additional = relative();
+
+            if (get_flag(FLAGS::Z) == 0) {
+                cycles++;
+
+                adr = PC + adr_relative;
+
+                // if high bytes are affected we add a cycle (not sure why)
+                if ((adr & 0xFF00) != (PC & 0xFF0)) cycles++;
+
+                PC = adr;
+            }
+
+            op_result = 0;
             break;
-        case Opcode::CP_immX:
+        }
+        case Opcode::CP_immX: {
             cycles = 2; 
+            uint8_t val = read(PC++);
+
+            uint8_t res = x - val;
+
+            set_flag(FLAGS::Z, res == 0x00);
+            set_flag(FLAGS::C, x >= val);
+            set_flag(FLAGS::N, res >> 7 == 1);
             break;
-        case Opcode::BEQ:
+        }
+        case Opcode::BEQ: {
             cycles = 2; 
+            additional = relative();
+
+            if (get_flag(FLAGS::Z) == 1) {
+                cycles++;
+
+                adr = PC + adr_relative;
+
+                // if high bytes are affected we add a cycle (not sure why)
+                if ((adr & 0xFF00) != (PC & 0xFF0)) cycles++;
+
+                PC = adr;
+            }
+
+            op_result = 0;
             break;
+        }
         case Opcode::ORA_indX:
-            cycles = 6; 
+            cycles = 6;
+            additional = ind_X();
+            op_result = ORA();
             break;
         case Opcode::ORA_indY:
             cycles = 5; 
+            additional = ind_Y();
+            op_result = ORA();
             break;
         case Opcode::AND_indX:
             cycles = 6; 
@@ -189,7 +338,9 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             op_result = AND();
             break;
         case Opcode::AND_indY:
-            cycles = 5; 
+            cycles = 5;
+            additional = ind_Y();
+            op_result = AND();
             break;
         case Opcode::EOR_indX:
             cycles = 6; 
@@ -240,28 +391,44 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             cycles = 4; 
             break;
         case Opcode::LD_zpgY:
-            cycles = 3; 
+            cycles = 3;
+            additional = zpg();
+            op_result = LDY();
             break;
         case Opcode::LD_zpgYX:
-            cycles = 4; 
+            cycles = 4;
+            additional = zpgX();
+            op_result = LDY();
             break;
         case Opcode::CP_zpgY:
             cycles = 3; 
+            additional = zpg();
+            op_result = CPY();
             break;
         case Opcode::CP_zpgX:
-            cycles = 3; 
+            cycles = 3;
+            additional = zpg();
+            op_result = CPX();
             break;
         case Opcode::ORA_zpg:
             cycles = 3; 
+            additional = zpg();
+            op_result = ORA();
             break;
         case Opcode::ORA_zpgX:
             cycles = 4; 
+            additional = zpgX();
+            op_result = ORA();
             break;
         case Opcode::AND_zpg:
-            cycles = 3; 
+            cycles = 3;
+            additional = zpg();
+            op_result = AND();
             break;
         case Opcode::AND_zpgX:
             cycles = 4; 
+            additional = zpgX();
+            op_result = AND();
             break;
         case Opcode::EOR_zpg:
             cycles = 3; 
@@ -352,6 +519,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             break;
         case Opcode::CLC_impl:
             cycles = 2; 
+            set_flag(FLAGS::C, 0);
             break;
         case Opcode::PLP_impl:
             cycles = 4; 
@@ -364,6 +532,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             break;
         case Opcode::CLI_impl:
             cycles = 2; 
+            set_flag(FLAGS::I, 0);
             break;
         case Opcode::PLA_impl:
             cycles = 4; 
@@ -382,12 +551,14 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             break;
         case Opcode::CLV_impl:
             cycles = 2; 
+            set_flag(FLAGS::V, 0);
             break;
         case Opcode::INY_impl:
             cycles = 2; 
             break;
         case Opcode::CLD_impl:
-            cycles = 2; 
+            cycles = 2;
+            set_flag(FLAGS::D, 0);
             break;
         case Opcode::INX_impl:
             cycles = 2; 
@@ -397,15 +568,33 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             break;
         case Opcode::ORA_imm:
             cycles = 2; 
-            break;
+            uint8_t val = read(PC++);
+
+            accumulator |= val;
+
+            set_flag(FLAGS::Z, accumulator == 0x00);
+            set_flag(FLAGS::Z, accumulator >> 7 == 1);
+
+            return 0;
         case Opcode::ORA_absY:
             cycles = 4; 
+            additional = absoluteY();
+            op_result = ORA();
             break;
-        case Opcode::AND_imm:
-            cycles = 2; 
+        case Opcode::AND_imm: {
+            cycles = 2;
+            uint8_t val = read(PC++);
+            accumulator = accumulator & val;
+            set_flag(FLAGS::N, accumulator >> 7 == 1);
+            set_flag(FLAGS::Z, 0x00 == accumulator);
+
+            return 0;
             break;
+        }
         case Opcode::AND_absY:
-            cycles = 4; 
+            cycles = 4;
+            additional = absoluteY();
+            op_result = AND();
             break;
         case Opcode::EOR_imm:
             cycles = 2; 
@@ -484,27 +673,43 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             break;
         case Opcode::LDY_abs: 
             cycles = 4;
+            additional = absolute();
+            op_result = LDY();
             break;
         case Opcode::LDY_absX: 
             cycles = 4;
+            additional = absoluteX();
+            op_result = LDY();
             break;
         case Opcode::CP_absY: 
             cycles = 4;
+            additional = absolute();
+            op_result = CPY();
             break;
         case Opcode::CP_absX: 
             cycles = 4;
+            additional = absolute();
+            op_result = CPX();
             break;
         case Opcode::ORA_abs: 
             cycles = 4;
+            additional = absolute();
+            op_result = ORA();
             break;
         case Opcode::ORA_absX: 
             cycles = 4;
+            additional = absoluteX();
+            op_result = ORA();
             break;
         case Opcode::AND_abs: 
             cycles = 4;
+            additional = absolute();
+            op_result = AND();
             break;
         case Opcode::AND_absX: 
             cycles = 4;
+            additional = absoluteX();
+            op_result = AND();
             break;
         case Opcode::EOR_abs: 
             cycles = 4;
@@ -639,7 +844,7 @@ uint8_t Cpu::pull() {
     // UNSURE about correctness
     uint16_t adr = convertTo_16_bit(0x01, stack_pointer);
 
-    uint8_t val = read(adr);
+    uint8_t val = fetch();
     write(adr, 0x00);
     stack_pointer++;
 
@@ -658,28 +863,29 @@ uint8_t Cpu::zpg() {
 }
 
 uint8_t Cpu::zpgX() {
-    adr = read(PC++) + x;
-    adr &= 0x00FF;
+    adr = wrap_around(read(PC++), x);
 
     return 0;
 }
 
 uint8_t Cpu::zpgY() {
-    adr = read(PC++) + y;
-    adr &= 0x00FF;
+    adr = wrap_around(read(PC++), y);
 
     return 0;
 }
 
 uint8_t Cpu::relative() {
     adr_relative = read(PC++);
-    if (FLAGS::V & adr_relative) {
-        adr_relative |= 0xFF00;
-    }
+    relative_test = adr_relative;
+
+    // check if first bit is 1 (negative number)
+    // if (0x80 & adr_relative) {
+    //     adr_relative |= 0xFF00;
+    // }
     return 0;
 }
 
-uint16_t Cpu::absolute() {
+uint8_t Cpu::absolute() {
     uint8_t low = read(PC++);
     uint8_t high = read(PC++);
 
@@ -688,7 +894,7 @@ uint16_t Cpu::absolute() {
     return 0;
 }
 
-uint16_t Cpu::absoluteX() {
+uint8_t Cpu::absoluteX() {
     uint8_t low = read(PC++);
     uint8_t high = read(PC++);
     adr = (high << 8) | low;
@@ -699,7 +905,7 @@ uint16_t Cpu::absoluteX() {
     else return 0;
 }
 
-uint16_t Cpu::absoluteY() {
+uint8_t Cpu::absoluteY() {
     uint8_t low = read(PC++);
     uint8_t high = read(PC++);
     adr = (high << 8) | low;
@@ -711,18 +917,26 @@ uint16_t Cpu::absoluteY() {
 }
 
 uint8_t Cpu::indirect() {
-    uint16_t eff_adr = absolute();
+    uint8_t low = read(PC++);
+    uint8_t high = read(PC++);
 
-    adr = (read(eff_adr + 1) << 8) | read(eff_adr);
+    uint16_t ptr = (high << 8) | low;
 
+    // this simulates a bug that was found in the NES hardware
+    if (low == 0x00FF) {
+        adr = (read(ptr & 0xFF00) << 8) | read(ptr);
+    }
+    else { // actual normal behaviour
+        adr = (read(ptr + 1) << 8) | read(ptr);
+    }
     return 0;
 }
 
-uint16_t Cpu::ind_X() {
-    uint8_t adr = read(PC++) + x;
+uint8_t Cpu::ind_X() {
+    uint8_t tmp = wrap_around(read(PC++), x);
 
-    uint8_t low = read(static_cast<uint16_t>(adr));
-    uint8_t high = read(static_cast<uint16_t>(adr + 1));
+    uint8_t low = read(static_cast<uint16_t>(tmp));
+    uint8_t high = read(static_cast<uint16_t>(wrap_around(tmp, 1)));
 
     uint16_t eff_adr = (high << 8) | low;
 
@@ -730,11 +944,11 @@ uint16_t Cpu::ind_X() {
     return 0;
 }
 
-uint16_t Cpu::ind_Y() {
+uint8_t Cpu::ind_Y() {
     uint8_t adr = zpg();
 
     uint8_t low = read(static_cast<uint16_t>(adr));
-    uint8_t high = read(static_cast<uint16_t>(adr + 1));
+    uint8_t high = read(static_cast<uint16_t>(wrap_around(adr, 1)));
 
     uint16_t eff_adr = ((high << 8) | low) + y;
 
@@ -768,6 +982,78 @@ uint8_t Cpu::BCS() {
     return 0;
 }
 
+uint8_t Cpu::LDY() {
+    uint8_t val = fetch();
+
+    y = val;
+
+    set_flag(FLAGS::Z, y == 0x00);
+    set_flag(FLAGS::N, y >> 7 == 1);
+    return 1;
+}
+
+uint8_t Cpu::CPX() {
+    uint8_t val = fetch();
+
+    set_flag(FLAGS::Z, x == val);
+    set_flag(FLAGS::C, x > val);
+    set_flag(FLAGS::N, x < val);
+
+    return 0;
+}
+
+uint8_t Cpu::CPY() {
+    uint8_t val = fetch();
+
+    set_flag(FLAGS::Z, y == val);
+    set_flag(FLAGS::C, y > val);
+    set_flag(FLAGS::N, y < val);
+
+    return 0;
+}
+
+uint8_t Cpu::ORA() {
+    uint8_t val = fetch();
+
+    accumulator |= val;
+
+    set_flag(FLAGS::Z, accumulator == 0x00);
+    set_flag(FLAGS::N, accumulator >> 7 == 1);
+
+    return 1;
+}
+
+uint8_t Cpu::ADC() {
+    uint8_t val = fetch();
+
+    uint16_t temp = static_cast<uint16_t>(val) + static_cast<uint16_t>(accumulator) + get_flag(FLAGS::C);
+
+    set_flag(FLAGS::C, temp > 255);
+    set_flag(FLAGS::Z, (temp & 0x00FF) == 0);
+    set_flag(FLAGS::N, temp & 0x80);
+    set_flag(FLAGS::V, (~(static_cast<uint16_t>(accumulator) ^ static_cast<uint16_t>(val)) & (static_cast<uint16_t>(accumulator) ^ static_cast<uint16_t>(temp))) & 0x0080);
+
+    accumulator = temp & 0x00FF;
+
+    return 1;
+}
+
+uint8_t Cpu::SBC() {
+    fetch();
+
+    uint16_t val = fetched ^ 0xFF;
+
+    uint16_t temp = static_cast<uint16_t>(val) + static_cast<uint16_t>(accumulator) + get_flag(FLAGS::C);
+
+    set_flag(FLAGS::C, temp > 255);
+    set_flag(FLAGS::Z, (temp & 0x00FF) == 0);
+    set_flag(FLAGS::N, temp & 0x80);
+    set_flag(FLAGS::V, (static_cast<uint16_t>(accumulator) ^ static_cast<uint16_t>(val) & (static_cast<uint16_t>(accumulator) ^ static_cast<uint16_t>(temp))) & 0x0080);
+
+    accumulator = temp & 0x00FF;
+
+    return 1;
+}
 
 uint8_t wrap_around(uint8_t val1, uint8_t val2) {
     return (val1 + val2) & 0xFF;

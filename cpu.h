@@ -179,14 +179,15 @@ struct Cpu {
     uint8_t y{0x00}; // x register
 
     // check that it starts right
-    uint8_t stack_pointer{0xFF}; // top of stack. Stack spans addresses: 0x0100 to 0x01FF
+    uint8_t stack_pointer{0xFD}; // top of stack. Stack spans addresses: 0x0100 to 0x01FF
     uint16_t PC{0x0000}; // program counter
     uint8_t status{0x00}; // flags state
     uint8_t fetched{0x00};
     uint8_t cycles{0x00};
     uint8_t opcode{0x00};
     uint16_t adr{0x0000};
-    uint16_t adr_relative{0x0000};
+    int8_t adr_relative{0x00}; // changed to 8 bits
+    int8_t relative_test{0x00};
 
     // Pointer to Bus it's a part of
     Bus *bus{nullptr};
@@ -224,17 +225,22 @@ struct Cpu {
     uint8_t zpgX();
     uint8_t zpgY();
     uint8_t relative();
-    uint16_t absolute();
-    uint16_t absoluteX();
-    uint16_t absoluteY();
+    uint8_t absolute();
+    uint8_t absoluteX();
+    uint8_t absoluteY();
     uint8_t indirect();
-    uint16_t ind_X();
-    uint16_t ind_Y();
+    uint8_t ind_X();
+    uint8_t ind_Y();
 
     // general instructions
     uint8_t AND();
     uint8_t BCS();
-
+    uint8_t LDY();
+    uint8_t CPX();
+    uint8_t CPY();
+    uint8_t ORA();
+    uint8_t ADC();
+    uint8_t SBC();
 };
 
 uint16_t convertTo_16_bit(uint8_t high, uint8_t low);
