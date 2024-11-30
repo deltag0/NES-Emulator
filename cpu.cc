@@ -566,7 +566,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
         case Opcode::SED_impl:
             cycles = 2; 
             break;
-        case Opcode::ORA_imm:
+        case Opcode::ORA_imm: {
             cycles = 2; 
             uint8_t val = read(PC++);
 
@@ -576,11 +576,13 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             set_flag(FLAGS::Z, accumulator >> 7 == 1);
 
             return 0;
-        case Opcode::ORA_absY:
+        }
+        case Opcode::ORA_absY: {
             cycles = 4; 
             additional = absoluteY();
             op_result = ORA();
             break;
+        }
         case Opcode::AND_imm: {
             cycles = 2;
             uint8_t val = read(PC++);
@@ -1048,7 +1050,7 @@ uint8_t Cpu::SBC() {
     set_flag(FLAGS::C, temp > 255);
     set_flag(FLAGS::Z, (temp & 0x00FF) == 0);
     set_flag(FLAGS::N, temp & 0x80);
-    set_flag(FLAGS::V, (static_cast<uint16_t>(accumulator) ^ static_cast<uint16_t>(val) & (static_cast<uint16_t>(accumulator) ^ static_cast<uint16_t>(temp))) & 0x0080);
+    set_flag(FLAGS::V, (static_cast<uint16_t>(accumulator) ^ static_cast<uint16_t>(val)) & (static_cast<uint16_t>(accumulator) ^ static_cast<uint16_t>(temp)) & 0x0080);
 
     accumulator = temp & 0x00FF;
 
