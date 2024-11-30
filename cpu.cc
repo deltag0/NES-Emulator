@@ -3,6 +3,9 @@
 #include "cpu.h"
 #include "bus.h"
 
+uint8_t wrap_around(uint8_t val1, uint8_t val2);
+uint8_t get_high(uint16_t val);
+uint8_t get_low(uint16_t val);
 
 Cpu::Cpu(Bus *bus): bus{bus} {}
 
@@ -48,42 +51,42 @@ void Cpu::set_flag(FLAGS flag, bool on) {
     {
     case FLAGS::C: {
         uint8_t mask = 1;
-        if (!flag) status = status & ~mask;
+        if (!on) status = status & ~mask;
         else status = status | mask;
     }
     case FLAGS::Z: {
         uint8_t mask = 1 << 1;
-        if (!flag) status = status & ~mask;
+        if (!on) status = status & ~mask;
         else status = status | mask;
     }
     case FLAGS::I: {
         uint8_t mask = 1 << 2;
-        if (!flag) status = status & ~mask;
+        if (!on) status = status & ~mask;
         else status = status | mask;
     }
     case FLAGS::D: {
         uint8_t mask = 1 << 3;
-        if (!flag) status = status & ~mask;
+        if (!on) status = status & ~mask;
         else status = status | mask;
     }
     case FLAGS::B: {
         uint8_t mask = 1 << 4;
-        if (!flag) status = status & ~mask;
+        if (!on) status = status & ~mask;
         else status = status | mask;
     }
     case FLAGS::U: {
         uint8_t mask = 1 << 5;
-        if (!flag) status = status & ~mask;
+        if (!on) status = status & ~mask;
         else status = status | mask;
     }
     case FLAGS::V: {
         uint8_t mask = 1 << 6;
-        if (!flag) status = status & ~mask;
+        if (!on) status = status & ~mask;
         else status = status | mask;
     }
     case FLAGS::N: {
         uint8_t mask = 1 << 7;
-        if (!flag) status = status & ~mask;
+        if (!on) status = status & ~mask;
         else status = status | mask;
     }
     default:
@@ -92,12 +95,14 @@ void Cpu::set_flag(FLAGS flag, bool on) {
 }
 
 uint8_t Cpu::fetch() {
-    fetched = read(PC);
+    fetched = read(adr);
     return fetched;
 }
 
 void Cpu::clock() {
     // if we finished the previous instruction, execute new one
+    // unlike real hardware, we finish the instruction in a single cycle
+    // then wait out the cycles until they reach 0
     if (cycles == 0) {
         opcode = read(PC);
         PC++;
@@ -107,13 +112,26 @@ void Cpu::clock() {
 
         cycles += additional_cycle;
     }
+
+    cycles--;
 }
 
 uint8_t Cpu::execute_opcode(Opcode opcode) {
+    uint8_t additional = 0x00;
+    uint8_t op_result = 0x00;
     switch (opcode) {
-        case Opcode::BRK: 
-            cycles = 7; 
+        case Opcode::BRK: {
+            PC++;
+            cycles = 7;
+            set_flag(FLAGS::B, true);
+            set_flag(FLAGS::I, true);
+            push(get_high(PC));
+            push(get_low(PC));
+            push(status);
+            uint16_t new_adr = convertTo_16_bit(read(0xFFFF), read(0xFFFE));
+            PC = new_adr;
             break;
+        }
         case Opcode::BPL: 
             cycles = 2; 
             break;
@@ -142,7 +160,10 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             cycles = 2; 
             break;
         case Opcode::BCS:
-            cycles = 2; 
+            cycles = 2;
+
+            additional = relative();
+            op_result = BCS();
             break;
         case Opcode::CP_immY:
             cycles = 2; 
@@ -164,6 +185,8 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             break;
         case Opcode::AND_indX:
             cycles = 6; 
+            additional = ind_X();
+            op_result = AND();
             break;
         case Opcode::AND_indY:
             cycles = 5; 
@@ -565,6 +588,8 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             cycles = 7;
             break;
     }
+
+    return op_result & additional;
 }
 
 void Cpu::irq() {
@@ -582,7 +607,7 @@ void Cpu::irq() {
     uint8_t low = read(0xFFFE);
     uint8_t high = read(0xFFFF);
 
-    PC = high << 8 | low;
+    PC = (high << 8) | low;
 
     set_flag(FLAGS::I, false);
 }
@@ -604,7 +629,7 @@ void Cpu::reset() {
 
 void Cpu::push(uint8_t val) {
     // UNSURE about correctness
-    uint16_t adr = convertTo_16_bit(0x10, stack_pointer);
+    uint16_t adr = convertTo_16_bit(0x01, stack_pointer);
 
     write(adr, val);
     stack_pointer--;
@@ -612,7 +637,7 @@ void Cpu::push(uint8_t val) {
 
 uint8_t Cpu::pull() {
     // UNSURE about correctness
-    uint16_t adr = convertTo_16_bit(0x10, stack_pointer);
+    uint16_t adr = convertTo_16_bit(0x01, stack_pointer);
 
     uint8_t val = read(adr);
     write(adr, 0x00);
@@ -622,5 +647,178 @@ uint8_t Cpu::pull() {
 }
 
 uint16_t convertTo_16_bit(uint8_t high, uint8_t low) {
-    return high << 8 | low;
+    return (high << 8) | low;
 }
+
+uint8_t Cpu::zpg() {
+    adr = read(PC++);
+    adr &= 0x00FF;
+
+    return 0;
+}
+
+uint8_t Cpu::zpgX() {
+    adr = read(PC++) + x;
+    adr &= 0x00FF;
+
+    return 0;
+}
+
+uint8_t Cpu::zpgY() {
+    adr = read(PC++) + y;
+    adr &= 0x00FF;
+
+    return 0;
+}
+
+uint8_t Cpu::relative() {
+    adr_relative = read(PC++);
+    if (FLAGS::V & adr_relative) {
+        adr_relative |= 0xFF00;
+    }
+    return 0;
+}
+
+uint16_t Cpu::absolute() {
+    uint8_t low = read(PC++);
+    uint8_t high = read(PC++);
+
+    adr = (high << 8) | low;
+
+    return 0;
+}
+
+uint16_t Cpu::absoluteX() {
+    uint8_t low = read(PC++);
+    uint8_t high = read(PC++);
+    adr = (high << 8) | low;
+
+    adr += x;
+    
+    if ((adr & 0xFF00) != (high << 8)) return 1;
+    else return 0;
+}
+
+uint16_t Cpu::absoluteY() {
+    uint8_t low = read(PC++);
+    uint8_t high = read(PC++);
+    adr = (high << 8) | low;
+
+    adr += y;
+    
+    if ((adr & 0xFF00) != (high << 8)) return 1;
+    else return 0;
+}
+
+uint8_t Cpu::indirect() {
+    uint16_t eff_adr = absolute();
+
+    adr = (read(eff_adr + 1) << 8) | read(eff_adr);
+
+    return 0;
+}
+
+uint16_t Cpu::ind_X() {
+    uint8_t adr = read(PC++) + x;
+
+    uint8_t low = read(static_cast<uint16_t>(adr));
+    uint8_t high = read(static_cast<uint16_t>(adr + 1));
+
+    uint16_t eff_adr = (high << 8) | low;
+
+    adr = eff_adr;
+    return 0;
+}
+
+uint16_t Cpu::ind_Y() {
+    uint8_t adr = zpg();
+
+    uint8_t low = read(static_cast<uint16_t>(adr));
+    uint8_t high = read(static_cast<uint16_t>(adr + 1));
+
+    uint16_t eff_adr = ((high << 8) | low) + y;
+
+    adr = eff_adr;
+
+    if ((adr & 0xFF00) != (high << 8)) return 1;
+    else return 0;
+}
+
+uint8_t Cpu::AND() {
+    uint8_t val = fetch();
+    accumulator = accumulator & val;
+    set_flag(FLAGS::N, accumulator >> 7 == 1);
+    set_flag(FLAGS::Z, 0x00 == accumulator);
+
+    return 1;
+}
+
+uint8_t Cpu::BCS() {
+    if (get_flag(FLAGS::C) == 1) {
+        cycles++;
+
+        adr = PC + adr_relative;
+
+        // if high bytes are affected we add a cycle (not sure why)
+        if ((adr & 0xFF00) != (PC & 0xFF0)) cycles++;
+
+        PC = adr;
+    }
+
+    return 0;
+}
+
+
+uint8_t wrap_around(uint8_t val1, uint8_t val2) {
+    return (val1 + val2) & 0xFF;
+}
+
+uint8_t sign_extend(uint8_t x, int bit_count) {
+    if ((x >> (bit_count - 1)) & 1) {
+        x |= (0xFF << bit_count);
+    }
+    return x;
+}
+
+uint8_t get_low(uint16_t val) {
+    return 0x00FF & val;
+}
+
+uint8_t get_high(uint16_t val) {
+    return val >> 8;
+}
+
+/*
+Addressing modes:
+
+bytes include opcode
+
+implicit: always 1 byte, no extra address anywhere
+
+accumulator: Also 1 byte, do smth with accumulator, not sure
+
+immediate: 2 bytes, and we can specify a constant (not address) in the instruction
+
+zero paging: 2 bytes, second byte is an address
+
+zero paging X: 2 bytes, second byte is address & we add it to value in X register
+
+zero paging Y: 2 bytes, second byte is address & we add it to value in Y register
+
+Relative: 2 bytes. After instruction executes, check if 0 flag is set. If it is, we jump to new address
+
+Absolute: 3 bytes. The 2 bytes after the first are the full address
+
+AbsoluteX: 3 bytes. The 2 bytes after the first are the full address & we add address from X register
+
+AbsoluteY: 3 bytes. The 2 bytes after the first are the full address & we add address from Y register
+
+Indirect: 3 bytes. First byte after the first is the least significant byte, and one after is most significant
+
+i.e: If we have 0xAB, followed by 0xFF, address is 0xFFAB
+
+Indexed Indirect (ind_X): 2 bytes. Add address from Y with wraparound (probably will need function for that): This is an address. Value of that address is Low byte. Value of address right after is high byte. Combine them, and retrieve the value from memory
+
+Indirect Indexed: 2 bytes. Value from second byte -> low byte. Value of address right after second byte -> high byte. Combine them to get an address. Add Y to the address with wraparound to the lower byte
+
+*/

@@ -178,12 +178,15 @@ struct Cpu {
     uint8_t x{0x00}; // y register
     uint8_t y{0x00}; // x register
 
-    uint8_t stack_pointer{0x00}; // top of stack. Stack spans addresses: 0x0100 to 0x01FF
+    // check that it starts right
+    uint8_t stack_pointer{0xFF}; // top of stack. Stack spans addresses: 0x0100 to 0x01FF
     uint16_t PC{0x0000}; // program counter
     uint8_t status{0x00}; // flags state
     uint8_t fetched{0x00};
     uint8_t cycles{0x00};
     uint8_t opcode{0x00};
+    uint16_t adr{0x0000};
+    uint16_t adr_relative{0x0000};
 
     // Pointer to Bus it's a part of
     Bus *bus{nullptr};
@@ -198,7 +201,7 @@ struct Cpu {
     // toggle flag on or off
     void set_flag(FLAGS flag, bool on);
     void clock();
-    
+
     // sets everything back to default parameters
     void reset();
     // if I flag is 0, irq is triggered at the end of instruction
@@ -207,186 +210,33 @@ struct Cpu {
 
     uint8_t fetch();
 
+    // function to verify which instruction to execute
     uint8_t execute_opcode(Opcode opcode);
 
+    // stack functions
+    // add element to top of stack
     void push(uint8_t val);
+    // remove and return element from top of stack
     uint8_t pull();
+
+    // functions for addressing
+    uint8_t zpg();
+    uint8_t zpgX();
+    uint8_t zpgY();
+    uint8_t relative();
+    uint16_t absolute();
+    uint16_t absoluteX();
+    uint16_t absoluteY();
+    uint8_t indirect();
+    uint16_t ind_X();
+    uint16_t ind_Y();
+
+    // general instructions
+    uint8_t AND();
+    uint8_t BCS();
+
 };
 
 uint16_t convertTo_16_bit(uint8_t high, uint8_t low);
 
 #endif
-
-/*
-switch (opcode) {
-    case Opcode::BRK: break;
-    case Opcode::BPL: break;
-    case Opcode::JSR: break;
-    case Opcode::BMI: break;
-    case Opcode::RTI: break;
-    case Opcode::BVC: break;
-    case Opcode::RTS: break;
-    case Opcode::BVS: break;
-    case Opcode::BCC: break;
-    case Opcode::LD_immY: break;
-    case Opcode::BCS: break;
-    case Opcode::CP_immY: break;
-    case Opcode::BNE: break;
-    case Opcode::CP_immX: break;
-    case Opcode::BEQ: break;
-    case Opcode::ORA_indX: break;
-    case Opcode::ORA_indY: break;
-    case Opcode::AND_indX: break;
-    case Opcode::AND_indY: break;
-    case Opcode::EOR_indX: break;
-    case Opcode::EOR_indY: break;
-    case Opcode::ADC_indX: break;
-    case Opcode::ADC_indY: break;
-    case Opcode::STA_indX: break;
-    case Opcode::STA_indY: break;
-    case Opcode::LDA_indX: break;
-    case Opcode::LDA_indY: break;
-    case Opcode::CMP_indX: break;
-    case Opcode::CMP_indY: break;
-    case Opcode::SBC_indX: break;
-    case Opcode::SBC_indY: break;
-    case Opcode::LD_immX: break;
-    case Opcode::BIT_zpg: break;
-    case Opcode::ST_zpgY: break;
-    case Opcode::ST_zpgYX: break;
-    case Opcode::LD_zpgY: break;
-    case Opcode::LD_zpgYX: break;
-    case Opcode::CP_zpgY: break;
-    case Opcode::CP_zpgX: break;
-    case Opcode::ORA_zpg: break;
-    case Opcode::ORA_zpgX: break;
-    case Opcode::AND_zpg: break;
-    case Opcode::AND_zpgX: break;
-    case Opcode::EOR_zpg: break;
-    case Opcode::EOR_zpgX: break;
-    case Opcode::ADC_zpg: break;
-    case Opcode::ADC_zpgX: break;
-    case Opcode::STA_zpg: break;
-    case Opcode::STA_zpgX: break;
-    case Opcode::LDA_zpg: break;
-    case Opcode::LDA_zpgX: break;
-    case Opcode::CMP_zpg: break;
-    case Opcode::CMP_zpgX: break;
-    case Opcode::SBC_zpg: break;
-    case Opcode::SBC_zpgX: break;
-    case Opcode::ASL_zpg: break;
-    case Opcode::ASL_zpgX: break;
-    case Opcode::ROL_zpg: break;
-    case Opcode::ROL_zpgX: break;
-    case Opcode::LSR_spg: break;
-    case Opcode::LSR_zpgX: break;
-    case Opcode::ROR_zpg: break;
-    case Opcode::ROR_zpgX: break;
-    case Opcode::STX_zpg: break;
-    case Opcode::STX_zpgY: break;
-    case Opcode::LDX_zpg: break;
-    case Opcode::LDX_zpgY: break;
-    case Opcode::DEC_zpg: break;
-    case Opcode::DEC_zpgX: break;
-    case Opcode::INC_zpg: break;
-    case Opcode::INC_zpgX: break;
-    case Opcode::PHP_impl: break;
-    case Opcode::CLC_impl: break;
-    case Opcode::PLP_impl: break;
-    case Opcode::SEC_impl: break;
-    case Opcode::PHA_impl: break;
-    case Opcode::CLI_impl: break;
-    case Opcode::PLA_impl: break;
-    case Opcode::SEI_impl: break;
-    case Opcode::DEY_impl: break;
-    case Opcode::TYA_impl: break;
-    case Opcode::TAY_impl: break;
-    case Opcode::CLV_impl: break;
-    case Opcode::INY_impl: break;
-    case Opcode::CLD_impl: break;
-    case Opcode::INX_impl: break;
-    case Opcode::SED_impl: break;
-    case Opcode::ORA_imm: break;
-    case Opcode::ORA_absY: break;
-    case Opcode::AND_imm: break;
-    case Opcode::AND_absY: break;
-    case Opcode::EOR_imm: break;
-    case Opcode::EOR_absY: break;
-    case Opcode::ADC_imm: break;
-    case Opcode::ADC_absY: break;
-    case Opcode::STA_absY: break;
-    case Opcode::LDA_imm: break;
-    case Opcode::LDA_absY: break;
-    case Opcode::CMP_imm: break;
-    case Opcode::CMP_absY: break;
-    case Opcode::SBC_imm: break;
-    case Opcode::SBC_absY: break;
-    case Opcode::ASL_A: break;
-    case Opcode::ROL_A: break;
-    case Opcode::LSR_A: break;
-    case Opcode::ROR_A: break;
-    case Opcode::TXA_impl: break;
-    case Opcode::TXS_impl: break;
-    case Opcode::TAX_impl: break;
-    case Opcode::TSX_impl: break;
-    case Opcode::DEX_impl: break;
-    case Opcode::NOP_impl: break;
-    case Opcode::BIT_abs: break;
-    case Opcode::JMP_abs: break;
-    case Opcode::JMP_ind: break;
-    case Opcode::STY_abs: break;
-    case Opcode::LDY_abs: break;
-    case Opcode::LDY_absX: break;
-    case Opcode::CPY_abs: break;
-    case Opcode::CP_absY: break;
-    case Opcode::ORA_abs: break;
-    case Opcode::ORA_absX: break;
-    case Opcode::AND_abs: break;
-    case Opcode::AND_absX: break;
-    case Opcode::EOR_abs: break;
-    case Opcode::EOR_absX: break;
-    case Opcode::ADC_abs: break;
-    case Opcode::ADC_absX: break;
-    case Opcode::STA_abs: break;
-    case Opcode::STA_absX: break;
-    case Opcode::LDA_abs: break;
-    case Opcode::LDA_absX: break;
-    case Opcode::CMP_abs: break;
-    case Opcode::CMP_absX: break;
-    case Opcode::SBC_abs: break;
-    case Opcode::SBC_absX: break;
-    case Opcode::ASL_abs: break;
-    case Opcode::ASL_absX: break;
-    case Opcode::ROL_abs: break;
-    case Opcode::ROL_absX: break;
-    case Opcode::LSR_abs: break;
-    case Opcode::LSR_absX: break;
-    case Opcode::ROR_abs: break;
-    case Opcode::ROR_absX: break;
-    case Opcode::STX_abs: break;
-    case Opcode::LDX_abs: break;
-    case Opcode::LDX_absY: break;
-    case Opcode::DEC_abs: break;
-    case Opcode::DEC_absX: break;
-    case Opcode::INC_abs: break;
-    case Opcode::INC_absX: break;
-}
-*/
-
-
-/*
-
-first Byte (8bits) of input in our CPU provides us with the: Instruction, Size, Duration
-
-To emulate an instruction, we need to emulate its:
-- function
-- address mode
-- cycles
-
-^^^^^^^^^^^^^
-All that is still in the first byte
-
-
-
-
-*/
