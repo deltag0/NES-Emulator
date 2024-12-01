@@ -250,8 +250,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
 
             y = val;
 
-            set_flag(FLAGS::Z, y == 0x00);
-            set_flag(FLAGS::N, y >> 7 == 1);
+            update_y_flags();
             return 0;
         }
         case Opcode::BCS: {
@@ -405,8 +404,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
 
             x = val;
 
-            set_flag(FLAGS::Z, x == 0x00);
-            set_flag(FLAGS::N, x >> 7 == 1);
+            update_x_flags();
 
             return 0;
         }
@@ -644,8 +642,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             cycles = 2; 
             y -= 1;
 
-            set_flag(FLAGS::Z, y == 0);
-            set_flag(FLAGS::N, y >> 7);
+            update_y_flags();
             return 0;
         case Opcode::TYA_impl:
             cycles = 2; 
@@ -685,8 +682,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
 
             accumulator |= val;
 
-            set_flag(FLAGS::Z, accumulator == 0x00);
-            set_flag(FLAGS::Z, accumulator >> 7 == 1);
+            update_accumulator_flags();
 
             return 0;
         }
@@ -700,8 +696,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             cycles = 2;
             uint8_t val = read(PC++);
             accumulator = accumulator & val;
-            set_flag(FLAGS::N, accumulator >> 7 == 1);
-            set_flag(FLAGS::Z, 0x00 == accumulator);
+            update_accumulator_flags();
 
             return 0;
             break;
@@ -799,8 +794,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             set_flag(FLAGS::C, accumulator >> 7);
             accumulator = accumulator << 1;
 
-            set_flag(FLAGS::N, accumulator >> 7);
-            set_flag(FLAGS::Z, accumulator == 0x00);
+            update_accumulator_flags();
 
             return 0;
         }
@@ -814,8 +808,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             if (temp) accumulator |= 0x01;
             else accumulator &= 0xFE;
 
-            set_flag(FLAGS::N, accumulator >> 7);
-            set_flag(FLAGS::Z, accumulator == 0x00);
+            update_accumulator_flags();
 
             return 0;
         }
@@ -867,8 +860,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             cycles = 2;
             x -= 1;
 
-            set_flag(FLAGS::Z, x == 0);
-            set_flag(FLAGS::N, x >> 7);
+            update_x_flags();
             return 0;
         case Opcode::NOP_impl: 
             cycles = 2;
@@ -1264,8 +1256,7 @@ uint8_t Cpu::LDY() {
 
     y = val;
 
-    set_flag(FLAGS::Z, y == 0x00);
-    set_flag(FLAGS::N, y >> 7 == 1);
+    update_y_flags();
     return 1;
 }
 
@@ -1274,8 +1265,7 @@ uint8_t Cpu::LDX() {
 
     x = val;
 
-    set_flag(FLAGS::Z, x == 0x00);
-    set_flag(FLAGS::N, x >> 7 == 1);
+    update_x_flags();
     return 1;
 }
 
