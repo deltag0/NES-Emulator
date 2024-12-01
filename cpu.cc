@@ -3,10 +3,6 @@
 #include "cpu.h"
 #include "bus.h"
 
-uint8_t wrap_around(uint8_t val1, uint8_t val2);
-uint8_t get_high(uint16_t val);
-uint8_t get_low(uint16_t val);
-
 Cpu::Cpu(Bus *bus): bus{bus} {}
 
 Cpu::~Cpu() {}
@@ -121,10 +117,9 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
     uint8_t op_result = 0x00;
     switch (opcode) {
         case Opcode::BRK: {
-            PC++;
+            // PC++; // not sure about this
             cycles = 7;
             set_flag(FLAGS::B, true);
-            set_flag(FLAGS::I, true);
             push(get_high(PC));
             push(get_low(PC));
             push(status);
@@ -155,6 +150,8 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             additional = absolute();
             push(get_high(PC));
             push(get_low(PC));
+            fetch();
+            PC = fetched;
             break;
         }
         case Opcode::BMI: {
@@ -343,52 +340,90 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             op_result = AND();
             break;
         case Opcode::EOR_indX:
+            additional = ind_X();
+            op_result = EOR();
             cycles = 6; 
             break;
         case Opcode::EOR_indY:
             cycles = 5; 
+            additional = ind_Y();
+            op_result = EOR();
             break;
         case Opcode::ADC_indX:
             cycles = 6; 
+            additional = ind_X();
+            op_result = ADC();
             break;
         case Opcode::ADC_indY:
             cycles = 5; 
+            additional = ind_Y();
+            op_result = ADC();
             break;
         case Opcode::STA_indX:
             cycles = 6; 
+            additional = ind_X();
+            op_result = STA();
             break;
         case Opcode::STA_indY:
             cycles = 6; 
+            additional = ind_Y();
+            op_result = STA();
             break;
         case Opcode::LDA_indX:
             cycles = 6; 
+            additional = ind_X();
+            op_result = LDA();
             break;
         case Opcode::LDA_indY:
             cycles = 5; 
+            additional = ind_Y();
+            op_result = LDA();
             break;
         case Opcode::CMP_indX:
-            cycles = 6; 
+            cycles = 6;
+            additional = ind_X();
+            op_result = CMP();
             break;
         case Opcode::CMP_indY:
             cycles = 5; 
+            additional = ind_Y();
+            op_result = CMP();
             break;
         case Opcode::SBC_indX:
             cycles = 6; 
+            additional = ind_X();
+            op_result = SBC();
             break;
         case Opcode::SBC_indY:
-            cycles = 5; 
+            cycles = 5;
+            additional = ind_Y();
+            op_result = SBC();
             break;
-        case Opcode::LD_immX:
+        case Opcode::LD_immX: {
             cycles = 2; 
-            break;
+            uint8_t val = read(PC++);
+
+            x = val;
+
+            set_flag(FLAGS::Z, x == 0x00);
+            set_flag(FLAGS::N, x >> 7 == 1);
+
+            return 0;
+        }
         case Opcode::BIT_zpg:
-            cycles = 3; 
+            cycles = 3;
+            additional = zpg();
+            op_result = BIT();
             break;
         case Opcode::ST_zpgY:
-            cycles = 3; 
+            cycles = 3;
+            additional = zpg();
+            op_result = STY();
             break;
         case Opcode::ST_zpgYX:
             cycles = 4; 
+            additional = zpgX();
+            op_result = STY();
             break;
         case Opcode::LD_zpgY:
             cycles = 3;
@@ -432,129 +467,204 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             break;
         case Opcode::EOR_zpg:
             cycles = 3; 
+            additional = zpg();
+            op_result = EOR();
             break;
         case Opcode::EOR_zpgX:
             cycles = 4; 
+            additional = zpgX();
+            op_result = EOR();
             break;
         case Opcode::ADC_zpg:
-            cycles = 3; 
+            cycles = 3;
+            additional = zpg();
+            op_result = ADC();
             break;
         case Opcode::ADC_zpgX:
             cycles = 4; 
+            additional = zpgX();
+            op_result = ADC();
             break;
         case Opcode::STA_zpg:
             cycles = 3; 
+            additional = zpg();
+            op_result = STA();
             break;
         case Opcode::STA_zpgX:
             cycles = 4; 
+            additional = zpgX();
+            op_result = STA();
             break;
         case Opcode::LDA_zpg:
             cycles = 3; 
+            additional = zpg();
+            op_result = LDA();
             break;
         case Opcode::LDA_zpgX:
             cycles = 4; 
+            additional = zpgX();
+            op_result = LDA();
             break;
         case Opcode::CMP_zpg:
-            cycles = 3; 
+            cycles = 3;
+            additional = zpg();
+            op_result = CMP();
             break;
         case Opcode::CMP_zpgX:
-            cycles = 4; 
+            cycles = 4;
+            additional = zpgX();
+            op_result = CMP();
             break;
         case Opcode::SBC_zpg:
-            cycles = 3; 
+            cycles = 3;
+            additional = zpg();
+            op_result = SBC();
             break;
         case Opcode::SBC_zpgX:
             cycles = 4; 
+            additional = zpgX();
+            op_result = SBC();
             break;
         case Opcode::ASL_zpg:
             cycles = 5; 
+            additional = zpg();
+            op_result = ASL();
             break;
         case Opcode::ASL_zpgX:
             cycles = 6; 
+            additional = zpgX();
+            op_result = ASL();
             break;
         case Opcode::ROL_zpg:
             cycles = 5; 
+            additional = zpg();
+            op_result = ROL();
             break;
         case Opcode::ROL_zpgX:
-            cycles = 6; 
+            cycles = 6;
+            additional = zpgX();
+            op_result = ROL();
             break;
-        case Opcode::LSR_spg:
-            cycles = 5; 
+        case Opcode::LSR_zpg:
+            cycles = 5;
+            additional = zpg();
+            op_result = LSR();
             break;
         case Opcode::LSR_zpgX:
-            cycles = 6; 
+            cycles = 6;
+            additional = zpgX();
+            op_result = LSR();
             break;
         case Opcode::ROR_zpg:
             cycles = 5; 
+            additional = zpg();
+            op_result = ROR();
             break;
         case Opcode::ROR_zpgX:
-            cycles = 6; 
+            cycles = 6;
+            additional = zpgX();
+            op_result = ROR();
             break;
         case Opcode::STX_zpg:
-            cycles = 3; 
+            cycles = 3;
+            additional = zpg();
+            op_result = STX();
             break;
         case Opcode::STX_zpgY:
-            cycles = 4; 
+            cycles = 4;
+            additional = zpgY();
+            op_result = STX();
             break;
         case Opcode::LDX_zpg:
             cycles = 3; 
+            additional = zpg();
+            op_result = LDX();
             break;
         case Opcode::LDX_zpgY:
-            cycles = 4; 
+            cycles = 4;
+            additional = zpgY();
+            op_result = LDX();
             break;
         case Opcode::DEC_zpg:
-            cycles = 5; 
+            cycles = 5;
+            additional = zpg();
+            op_result = DEC();
             break;
         case Opcode::DEC_zpgX:
-            cycles = 6; 
+            cycles = 6;
+            additional = zpgX();
+            op_result = DEC();
             break;
         case Opcode::INC_zpg:
-            cycles = 5; 
+            cycles = 5;
+            additional = zpg();
+            op_result = INC();
             break;
         case Opcode::INC_zpgX:
             cycles = 6; 
+            additional = zpgX();
+            op_result = INC();
             break;
         case Opcode::PHP_impl:
-            cycles = 3; 
+            cycles = 3;
+            push(status);
             break;
         case Opcode::CLC_impl:
             cycles = 2; 
             set_flag(FLAGS::C, 0);
             break;
-        case Opcode::PLP_impl:
-            cycles = 4; 
+        case Opcode::PLP_impl: {
+            cycles = 4;
+            uint8_t new_status = pull();
+            status = new_status;
             break;
+        }
         case Opcode::SEC_impl:
-            cycles = 2; 
+            cycles = 2;
+            set_flag(FLAGS::C, 1);
             break;
         case Opcode::PHA_impl:
             cycles = 3; 
+            push(accumulator);
             break;
         case Opcode::CLI_impl:
             cycles = 2; 
             set_flag(FLAGS::I, 0);
             break;
         case Opcode::PLA_impl:
-            cycles = 4; 
+            cycles = 4;
+            accumulator = pull();
+            update_accumulator_flags();
             break;
         case Opcode::SEI_impl:
             cycles = 2; 
+            set_flag(FLAGS::I, 1);
             break;
         case Opcode::DEY_impl:
             cycles = 2; 
-            break;
+            y -= 1;
+
+            set_flag(FLAGS::Z, y == 0);
+            set_flag(FLAGS::N, y >> 7);
+            return 0;
         case Opcode::TYA_impl:
             cycles = 2; 
+            accumulator = y;
+            update_accumulator_flags();
             break;
         case Opcode::TAY_impl:
-            cycles = 2; 
+            cycles = 2;
+            y = accumulator;
+            update_y_flags();
             break;
         case Opcode::CLV_impl:
             cycles = 2; 
             set_flag(FLAGS::V, 0);
             break;
         case Opcode::INY_impl:
-            cycles = 2; 
+            cycles = 2;
+            y += 1;
+            update_y_flags();
             break;
         case Opcode::CLD_impl:
             cycles = 2;
@@ -562,9 +672,12 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             break;
         case Opcode::INX_impl:
             cycles = 2; 
+            x += 1;
+            update_x_flags();
             break;
         case Opcode::SED_impl:
             cycles = 2; 
+            set_flag(FLAGS::D, 1);
             break;
         case Opcode::ORA_imm: {
             cycles = 2; 
@@ -598,80 +711,189 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             additional = absoluteY();
             op_result = AND();
             break;
-        case Opcode::EOR_imm:
-            cycles = 2; 
+        case Opcode::EOR_imm: {
+            cycles = 2;
+            accumulator = accumulator ^ read(PC++);
+            update_accumulator_flags();
             break;
+        }
         case Opcode::EOR_absY:
             cycles = 4; 
+            additional = absoluteY();
+            op_result = EOR();
             break;
-        case Opcode::ADC_imm:
-            cycles = 2; 
-            break;
+        case Opcode::ADC_imm: {
+            cycles = 2;
+            uint8_t val = read(PC++);
+
+            uint16_t temp = static_cast<uint16_t>(val) + static_cast<uint16_t>(accumulator) + get_flag(FLAGS::C);
+
+            set_flag(FLAGS::C, temp > 255);
+            set_flag(FLAGS::Z, (temp & 0x00FF) == 0);
+            set_flag(FLAGS::N, temp & 0x80);
+            set_flag(FLAGS::V, (~(static_cast<uint16_t>(accumulator) ^ static_cast<uint16_t>(val)) & (static_cast<uint16_t>(accumulator) ^ static_cast<uint16_t>(temp))) & 0x0080);
+
+            accumulator = temp & 0x00FF;
+
+            return 0;
+        }
         case Opcode::ADC_absY:
-            cycles = 4; 
+            cycles = 4;
+            additional = absoluteY();
+            op_result = ADC();
             break;
         case Opcode::STA_absY:
             cycles = 5; 
+            additional = absoluteY();
+            op_result = STA();
             break;
-        case Opcode::LDA_imm:
+        case Opcode::LDA_imm: {
             cycles = 2; 
-            break;
+            accumulator = read(PC++);
+            update_accumulator_flags();
+
+            return 0;
+        }
         case Opcode::LDA_absY:
             cycles = 4; 
+            additional = absoluteY();
+            op_result = LDA();
             break;
-        case Opcode::CMP_imm:
-            cycles = 2; 
-            break;
+        case Opcode::CMP_imm: {
+            cycles = 2;
+            uint8_t val = read(PC++);
+
+            set_flag(FLAGS::Z, accumulator == val);
+            set_flag(FLAGS::C, accumulator > val);
+            set_flag(FLAGS::N, accumulator < val);
+            return 0;
+        }
         case Opcode::CMP_absY:
             cycles = 4; 
+            additional = absoluteY();
+            op_result = CMP();
             break;
-        case Opcode::SBC_imm:
-            cycles = 2; 
-            break;
+        case Opcode::SBC_imm: {
+            cycles = 2;
+            uint16_t val = read(PC++) ^ 0xFF;
+
+            uint16_t temp = static_cast<uint16_t>(val) + static_cast<uint16_t>(accumulator) + get_flag(FLAGS::C);
+
+            set_flag(FLAGS::C, temp > 255);
+            set_flag(FLAGS::Z, (temp & 0x00FF) == 0);
+            set_flag(FLAGS::N, temp & 0x80);
+            set_flag(FLAGS::V, (static_cast<uint16_t>(accumulator) ^ static_cast<uint16_t>(val)) & (static_cast<uint16_t>(accumulator) ^ static_cast<uint16_t>(temp)) & 0x0080);
+
+            accumulator = temp & 0x00FF;
+            
+            return 0;
+        }
         case Opcode::SBC_absY:
             cycles = 4; 
+            additional = absoluteY();
+            op_result = SBC();
             break;
-        case Opcode::ASL_A:
+        case Opcode::ASL_A: {
+            cycles = 2;
+
+            set_flag(FLAGS::C, accumulator >> 7);
+            accumulator = accumulator << 1;
+
+            set_flag(FLAGS::N, accumulator >> 7);
+            set_flag(FLAGS::Z, accumulator == 0x00);
+
+            return 0;
+        }
+        case Opcode::ROL_A: {
             cycles = 2; 
-            break;
-        case Opcode::ROL_A:
+
+            uint8_t temp = get_flag(FLAGS::C);
+            set_flag(FLAGS::C, accumulator >> 7);
+            accumulator = accumulator << 1;
+
+            if (temp) accumulator |= 0x01;
+            else accumulator &= 0xFE;
+
+            set_flag(FLAGS::N, accumulator >> 7);
+            set_flag(FLAGS::Z, accumulator == 0x00);
+
+            return 0;
+        }
+        case Opcode::LSR_A: {
             cycles = 2; 
-            break;
-        case Opcode::LSR_A:
-            cycles = 2; 
-            break;
-        case Opcode::ROR_A:
-            cycles = 2; 
-            break;
+
+            set_flag(FLAGS::C, accumulator & 0x01);
+            accumulator  = accumulator >> 1;
+
+            fetch();
+            set_flag(FLAGS::N, 0);
+            set_flag(FLAGS::Z, fetched == 0x00);
+            return 0;
+        }
+        case Opcode::ROR_A: {
+            cycles = 2;
+
+            uint8_t temp = get_flag(FLAGS::C);
+            set_flag(FLAGS::C, accumulator << 7);
+            accumulator = accumulator >> 1;
+            if (temp) accumulator |= 0x80;
+            else accumulator &= 0x7F;
+
+            set_flag(FLAGS::Z, accumulator == 0);
+            set_flag(FLAGS::N, temp);
+
+            return 0;
+        }
         case Opcode::TXA_impl:
-            cycles = 2; 
+            cycles = 2;
+            accumulator = x;
+            update_accumulator_flags();
             break;
         case Opcode::TXS_impl:
-            cycles = 2; 
+            cycles = 2;
+            stack_pointer = x;
             break;
         case Opcode::TAX_impl:
-            cycles = 2; 
+            cycles = 2;
+            x = accumulator;
+            update_x_flags();
             break;
         case Opcode::TSX_impl:
-            cycles = 2; 
+            cycles = 2;
+            x = stack_pointer;
+            update_x_flags();
             break;
         case Opcode::DEX_impl:
-            cycles = 2; 
-            break;
+            cycles = 2;
+            x -= 1;
+
+            set_flag(FLAGS::Z, x == 0);
+            set_flag(FLAGS::N, x >> 7);
+            return 0;
         case Opcode::NOP_impl: 
-            cycles = 2; 
+            cycles = 2;
+
+            //TODO
             break;
         case Opcode::BIT_abs: 
             cycles = 4;
+            additional = absolute();
+            op_result = BIT();
             break;
         case Opcode::JMP_abs: 
             cycles = 3;
+            additional = absolute();
+            op_result = JMP();
             break;
         case Opcode::JMP_ind: 
             cycles = 5;
+            additional = indirect();
+            op_result = JMP();
             break;
         case Opcode::STY_abs: 
             cycles = 4;
+            additional = absolute();
+            op_result = STY();
             break;
         case Opcode::LDY_abs: 
             cycles = 4;
@@ -715,84 +937,138 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             break;
         case Opcode::EOR_abs: 
             cycles = 4;
+            additional = absolute();
+            op_result = EOR();
             break;
         case Opcode::EOR_absX: 
             cycles = 4;
+            additional = absoluteX();
+            op_result = EOR();
             break;
         case Opcode::ADC_abs: 
             cycles = 4;
+            additional = absolute();
+            op_result = ADC();
             break;
         case Opcode::ADC_absX: 
             cycles = 4;
+            additional = absoluteX();
+            op_result = ADC();
             break;
         case Opcode::STA_abs: 
             cycles = 4;
+            additional = absolute();
+            op_result = STA();
             break;
         case Opcode::STA_absX: 
             cycles = 5;
+            additional = absoluteX();
+            op_result = STA();
             break;
         case Opcode::LDA_abs: 
             cycles = 4;
+            additional = absolute();
+            op_result = LDA();
             break;
         case Opcode::LDA_absX: 
             cycles = 4;
+            additional = absoluteX();
+            op_result = LDA();
             break;
         case Opcode::CMP_abs: 
             cycles = 4;
+            additional = absolute();
+            op_result = CMP();
             break;
         case Opcode::CMP_absX: 
             cycles = 4;
+            additional = absoluteX();
+            op_result = CMP();
             break;
         case Opcode::SBC_abs: 
             cycles = 4;
+            additional = absolute();
+            op_result = SBC();
             break;
         case Opcode::SBC_absX: 
             cycles = 4;
+            additional = absoluteX();
+            op_result = SBC();
             break;
         case Opcode::ASL_abs: 
             cycles = 6;
+            additional = absolute();
+            op_result = ASL();
             break;
         case Opcode::ASL_absX: 
             cycles = 7;
+            additional = absoluteX();
+            op_result = ASL();
             break;
         case Opcode::ROL_abs: 
             cycles = 6;
+            additional = absolute();
+            op_result = ROL();
             break;
         case Opcode::ROL_absX: 
             cycles = 7;
+            additional = absoluteX();
+            op_result = ROL();
             break;
         case Opcode::LSR_abs: 
             cycles = 6;
+            additional = absolute();
+            op_result = LSR();
             break;
         case Opcode::LSR_absX: 
             cycles = 7;
+            additional = absoluteX();
+            op_result = LSR();
             break;
         case Opcode::ROR_abs: 
             cycles = 6;
+            additional = absolute();
+            op_result = ROR();
             break;
         case Opcode::ROR_absX: 
             cycles = 7;
+            additional = absoluteX();
+            op_result = ROR();
             break;
         case Opcode::STX_abs: 
             cycles = 4;
+            additional = absolute();
+            op_result = STX();
             break;
         case Opcode::LDX_abs: 
             cycles = 4;
+            additional = absolute();
+            op_result = LDX();
             break;
         case Opcode::LDX_absY: 
             cycles = 4;
+            additional = absoluteY();
+            op_result = LDX();
             break;
         case Opcode::DEC_abs: 
             cycles = 6;
+            additional = absolute();
+            op_result = DEC();
             break;
         case Opcode::DEC_absX: 
             cycles = 7;
+            additional = absoluteX();
+            op_result = DEC();
             break;
         case Opcode::INC_abs: 
             cycles = 6;
+            additional = absolute();
+            op_result = INC();
             break;
         case Opcode::INC_absX: 
             cycles = 7;
+            additional = absoluteX();
+            op_result = INC();
             break;
     }
 
@@ -963,8 +1239,7 @@ uint8_t Cpu::ind_Y() {
 uint8_t Cpu::AND() {
     uint8_t val = fetch();
     accumulator = accumulator & val;
-    set_flag(FLAGS::N, accumulator >> 7 == 1);
-    set_flag(FLAGS::Z, 0x00 == accumulator);
+    update_accumulator_flags();
 
     return 1;
 }
@@ -994,6 +1269,28 @@ uint8_t Cpu::LDY() {
     return 1;
 }
 
+uint8_t Cpu::LDX() {
+    uint8_t val = fetch();
+
+    x = val;
+
+    set_flag(FLAGS::Z, x == 0x00);
+    set_flag(FLAGS::N, x >> 7 == 1);
+    return 1;
+}
+
+uint8_t Cpu::BIT() {
+    fetch();
+
+    uint8_t temp = accumulator & fetched;
+
+    set_flag(FLAGS::Z, temp == 0x00);
+    set_flag(FLAGS::N, fetched >> 7);
+    set_flag(FLAGS::V, fetched & 0x40);
+
+    return 0;
+}
+
 uint8_t Cpu::CPX() {
     uint8_t val = fetch();
 
@@ -1002,6 +1299,16 @@ uint8_t Cpu::CPX() {
     set_flag(FLAGS::N, x < val);
 
     return 0;
+}
+
+uint8_t Cpu::CMP() {
+    uint8_t val = fetch();
+
+    set_flag(FLAGS::Z, accumulator == val);
+    set_flag(FLAGS::C, accumulator > val);
+    set_flag(FLAGS::N, accumulator < val);
+
+    return 1;
 }
 
 uint8_t Cpu::CPY() {
@@ -1019,8 +1326,7 @@ uint8_t Cpu::ORA() {
 
     accumulator |= val;
 
-    set_flag(FLAGS::Z, accumulator == 0x00);
-    set_flag(FLAGS::N, accumulator >> 7 == 1);
+    update_accumulator_flags();
 
     return 1;
 }
@@ -1055,6 +1361,137 @@ uint8_t Cpu::SBC() {
     accumulator = temp & 0x00FF;
 
     return 1;
+}
+
+uint8_t Cpu::EOR() {
+    fetch();
+    accumulator = accumulator ^ fetched;
+    update_accumulator_flags();
+    
+    return 1;
+}
+
+uint8_t Cpu::STA() {
+    write(adr, accumulator);
+    
+    return 0;
+}
+
+uint8_t Cpu::STY() {
+    write(adr, y);
+
+    return 0;
+}
+
+uint8_t Cpu::STX() {
+    write(adr, x);
+
+    return 0;
+}
+
+uint8_t Cpu::ASL() {
+    fetch();
+
+    set_flag(FLAGS::C, fetched >> 7);
+    write(adr, fetched << 1);
+
+    fetch();
+    set_flag(FLAGS::N, fetched >> 7);
+    set_flag(FLAGS::Z, fetched == 0x00);
+    return 0;
+}
+
+uint8_t Cpu::DEC() {
+    write(adr, fetch() - 1);
+    fetch();
+
+    set_flag(FLAGS::Z, fetched == 0);
+    set_flag(FLAGS::N, fetched >> 7);
+    return 0;
+}
+
+uint8_t Cpu::INC() {
+    write(adr, fetch() + 1);
+    fetch();
+
+    set_flag(FLAGS::Z, fetched == 0);
+    set_flag(FLAGS::N, fetched >> 7);
+    return 0;
+}
+
+
+uint8_t Cpu::ROL() {
+    fetch();
+
+    uint8_t temp = get_flag(FLAGS::C);
+    set_flag(FLAGS::C, fetched >> 7);
+    fetched = fetched << 1;
+
+    if (temp) fetched |= 0x01;
+    else fetched &= 0xFE;
+
+    write(adr, fetched);
+    set_flag(FLAGS::N, fetched >> 7);
+    set_flag(FLAGS::Z, fetched == 0x00);
+    return 0;
+}
+
+uint8_t Cpu::ROR() {
+    fetch() ;
+
+    uint8_t temp = get_flag(FLAGS::C);
+    set_flag(FLAGS::C, fetched << 7);
+    fetched = fetched >> 1;
+    if (temp) fetched |= 0x80;
+    else fetched &= 0x7F;
+
+    set_flag(FLAGS::Z, fetched == 0);
+    set_flag(FLAGS::N, temp);
+
+    return 0;
+}
+
+uint8_t Cpu::LSR() {
+    fetch();
+
+    set_flag(FLAGS::C, fetched & 0x01);
+    write(adr, fetched >> 1);
+
+    fetch();
+    set_flag(FLAGS::N, 0);
+    set_flag(FLAGS::Z, fetched == 0x00);
+    return 0;
+}
+
+uint8_t Cpu::JMP() {
+    fetch();
+    PC = fetched;
+
+    return 0;
+}
+
+uint8_t Cpu::LDA() {
+    fetch();
+
+    accumulator = fetched;
+    update_accumulator_flags();
+
+    return 1;
+}
+
+void Cpu::update_accumulator_flags() {
+    set_flag(FLAGS::Z, accumulator == 0x00);
+    set_flag(FLAGS::N, accumulator >> 7 == 1);
+}
+
+void Cpu::update_y_flags() {
+    set_flag(FLAGS::Z, y == 0x00);
+    set_flag(FLAGS::N, y >> 7 == 1);
+}
+
+void Cpu::update_x_flags() {
+    set_flag(FLAGS::Z, x == 0x00);
+    set_flag(FLAGS::N, x >> 7 == 1);
 }
 
 uint8_t wrap_around(uint8_t val1, uint8_t val2) {

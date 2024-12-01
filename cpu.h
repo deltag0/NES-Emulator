@@ -64,7 +64,7 @@ enum class Opcode: uint8_t {
     ASL_zpgX = 0x16,
     ROL_zpg = 0x26,
     ROL_zpgX = 0x36,
-    LSR_spg = 0x46,
+    LSR_zpg = 0x46,
     LSR_zpgX = 0x56,
     ROR_zpg = 0x66,
     ROR_zpgX = 0x76,
@@ -220,6 +220,10 @@ struct Cpu {
     // remove and return element from top of stack
     uint8_t pull();
 
+    void update_accumulator_flags();
+    void update_y_flags();
+    void update_x_flags();
+
     // functions for addressing
     uint8_t zpg();
     uint8_t zpgX();
@@ -238,11 +242,29 @@ struct Cpu {
     uint8_t LDY();
     uint8_t CPX();
     uint8_t CPY();
+    uint8_t CMP();
     uint8_t ORA();
     uint8_t ADC();
     uint8_t SBC();
+    uint8_t EOR();
+    uint8_t STA();
+    uint8_t LDA();
+    uint8_t LDX();
+    uint8_t BIT();
+    uint8_t STY();
+    uint8_t STX();
+    uint8_t ASL();
+    uint8_t ROL();
+    uint8_t LSR();
+    uint8_t ROR();
+    uint8_t DEC();
+    uint8_t INC();
+    uint8_t JMP();
 };
 
 uint16_t convertTo_16_bit(uint8_t high, uint8_t low);
+uint8_t wrap_around(uint8_t val1, uint8_t val2);
+uint8_t get_high(uint16_t val);
+uint8_t get_low(uint16_t val);
 
 #endif
