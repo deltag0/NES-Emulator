@@ -3,6 +3,7 @@
 #include "cpu.h"
 #include "bus.h"
 
+
 Cpu::Cpu(Bus *bus): bus{bus} {}
 
 Cpu::~Cpu() {}
@@ -175,6 +176,10 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
         case Opcode::RTI: {
             cycles = 6; 
             status = pull();
+
+            status &= ~FLAGS::B;
+            status &= ~FLAGS::U;
+
             uint8_t low = pull();
             uint8_t high = pull();
 
@@ -1072,11 +1077,15 @@ void Cpu::irq() {
     // Since the ram stores 2 8bit addresses, ^lower byte, ^higher byte 
     // to make up an address on the RAM for PC
 
-    uint8_t pc_low = PC & 0x00FF; // make sure this is right
-    uint8_t pc_high = PC >> 8; // make sure this is right
+    uint8_t pc_low = PC & 0x00FF;
+    uint8_t pc_high = PC >> 8;
 
     push(pc_high);
     push(pc_low);
+
+    set_flag(FLAGS::I, 1);
+    set_flag(FLAGS::B, 0);
+    set_flag(FLAGS::U, 1);
     push(status);
 
     uint8_t low = read(0xFFFE);
@@ -1084,22 +1093,49 @@ void Cpu::irq() {
 
     PC = (high << 8) | low;
 
-    set_flag(FLAGS::I, false);
+    cycles = 7;
+}
+
+void Cpu::nmi() {
+    uint8_t pc_low = PC & 0x00FF;
+    uint8_t pc_high = PC >> 8;
+
+    push(pc_high);
+    push(pc_low);
+
+    set_flag(FLAGS::I, 1);
+    set_flag(FLAGS::B, 0);
+    set_flag(FLAGS::U, 1);
+    push(status);
+
+    uint8_t low = read(0xFFFA);
+    uint8_t high = read(0xFFFA + 1);
+
+    PC = (high << 8) | low;
+
+    cycles = 8;
 }
 
 void Cpu::reset() {
     PC = 0x0000; // might change
 
-    stack_pointer = 0x00; // might change
+    stack_pointer = 0xFD; // might change
     accumulator = 0x00;
     x = 0x00;
     y = 0x00;
 
-    status = 0x00;
+    status = 0x00 | FLAGS::U;
+
+    adr = 0xFFFC;
+    uint8_t low = read(adr);
+    uint8_t high = read(adr + 1);
+    PC = convertTo_16_bit(high, low);
 
     fetched = 0x00;
+    adr = 0x0000;
+    adr_relative = 0x00;
 
-    cycles = 0x00;
+    cycles = 8;
 }
 
 void Cpu::push(uint8_t val) {
@@ -1146,12 +1182,11 @@ uint8_t Cpu::zpgY() {
 
 uint8_t Cpu::relative() {
     adr_relative = read(PC++);
-    relative_test = adr_relative;
 
     // check if first bit is 1 (negative number)
-    // if (0x80 & adr_relative) {
-    //     adr_relative |= 0xFF00;
-    // }
+    if (0x80 & adr_relative) {
+        adr_relative |= 0xFF00;
+    }
     return 0;
 }
 

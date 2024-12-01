@@ -186,7 +186,7 @@ struct Cpu {
     uint8_t cycles{0x00};
     uint8_t opcode{0x00};
     uint16_t adr{0x0000};
-    int8_t adr_relative{0x00}; // changed to 8 bits
+    uint8_t adr_relative{0x00}; // changed to 8 bits
     int8_t relative_test{0x00};
 
     // Pointer to Bus it's a part of
