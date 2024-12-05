@@ -1,5 +1,5 @@
 #include <stdexcept>
-
+#include <iostream> // for debugging
 
 #include "cpu.h"
 #include "bus.h"
@@ -73,41 +73,49 @@ void Cpu::set_flag(FLAGS flag, bool on) {
         uint8_t mask = 1;
         if (!on) status = status & ~mask;
         else status = status | mask;
+        break;
     }
     case FLAGS::Z: {
         uint8_t mask = 1 << 1;
         if (!on) status = status & ~mask;
         else status = status | mask;
+        break;
     }
     case FLAGS::I: {
         uint8_t mask = 1 << 2;
         if (!on) status = status & ~mask;
         else status = status | mask;
+        break;
     }
     case FLAGS::D: {
         uint8_t mask = 1 << 3;
         if (!on) status = status & ~mask;
         else status = status | mask;
+        break;
     }
     case FLAGS::B: {
         uint8_t mask = 1 << 4;
         if (!on) status = status & ~mask;
         else status = status | mask;
+        break;
     }
     case FLAGS::U: {
         uint8_t mask = 1 << 5;
         if (!on) status = status & ~mask;
         else status = status | mask;
+        break;
     }
     case FLAGS::V: {
         uint8_t mask = 1 << 6;
         if (!on) status = status & ~mask;
         else status = status | mask;
+        break;
     }
     case FLAGS::N: {
         uint8_t mask = 1 << 7;
         if (!on) status = status & ~mask;
         else status = status | mask;
+        break;
     }
     default:
         throw std::runtime_error("Invalid flag");
@@ -125,15 +133,23 @@ void Cpu::clock() {
     // then wait out the cycles until they reach 0
     if (cycles == 0) {
         opcode = read(PC);
+
+        set_flag(FLAGS::U, 1);
         PC++;
 
         // can have 1 or 0 additional cycle
-        uint8_t additional_cycle =  execute_opcode(static_cast<Opcode>(opcode));
+        uint8_t additional_cycle = execute_opcode(static_cast<Opcode>(opcode));
 
         cycles += additional_cycle;
+        set_flag(FLAGS::U, 1);
     }
 
+    clock_count++;
     cycles--;
+}
+
+bool Cpu::complete() const {
+    return cycles == 0;
 }
 
 uint8_t Cpu::execute_opcode(Opcode opcode) {

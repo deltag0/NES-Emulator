@@ -189,8 +189,10 @@ struct Cpu {
     uint8_t cycles{0x00};
     uint8_t opcode{0x00};
     uint16_t adr{0x0000};
-    uint8_t adr_relative{0x00}; // changed to 8 bits
-    int8_t relative_test{0x00};
+    uint16_t adr_relative{0x0000};
+
+    uint8_t clock_count{0x00};
+
 
     // Pointer to Bus it's a part of
     Bus *bus{nullptr};
@@ -219,6 +221,8 @@ struct Cpu {
 
     // function to verify which instruction to execute
     uint8_t execute_opcode(Opcode opcode);
+
+    bool complete() const;
 
     // stack functions
     // add element to top of stack
