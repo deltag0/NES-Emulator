@@ -1,7 +1,10 @@
 #ifndef CPU_H
 #define CPU_H
 
+#include <string>
 #include <cstdint>
+#include <vector>
+#include <map>
 
 // all opcodes (possible ways of optimization in future)
 enum class Opcode: uint8_t {
@@ -196,7 +199,8 @@ struct Cpu {
     void write(uint16_t adr, uint8_t val);
     uint8_t read(uint16_t adr) const;
 
-    // disassembler
+    // 
+    std::map<uint16_t, std::string> disassemble(uint16_t nStart, uint16_t nStop);
 
     // get the status of the wanted flag
     uint8_t get_flag(FLAGS flag) const;
@@ -227,6 +231,7 @@ struct Cpu {
     void update_x_flags();
 
     // functions for addressing
+    // lesson from review -> if functions had all same name length (without abstracting meaning too much) code would be much cleaner
     uint8_t zpg();
     uint8_t zpgX();
     uint8_t zpgY();
@@ -237,6 +242,7 @@ struct Cpu {
     uint8_t indirect();
     uint8_t ind_X();
     uint8_t ind_Y();
+    uint8_t imp() {return 0;};
 
     // general instructions
     uint8_t AND();
@@ -262,6 +268,19 @@ struct Cpu {
     uint8_t DEC();
     uint8_t INC();
     uint8_t JMP();
+
+
+    // debugger information for disassembler
+    // To write the disassembler, it would require the entire
+    // switch statements again, but since performance is not an issue
+    // a lookup table is used
+    struct INSTRUCTION
+	{
+		std::string name;
+		uint8_t (Cpu::*addrmode)(void) = nullptr;
+	};
+
+	std::vector<INSTRUCTION> lookup;
 };
 
 uint16_t convertTo_16_bit(uint8_t high, uint8_t low);

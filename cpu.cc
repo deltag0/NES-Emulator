@@ -4,7 +4,29 @@
 #include "cpu.h"
 #include "bus.h"
 
-Cpu::Cpu(Bus *bus): bus{bus} {}
+Cpu::Cpu(Bus *bus): bus{bus} {
+    using a = Cpu;
+
+    lookup = 
+	{
+		{ "BRK", nullptr},{ "ORA", &a::ind_X},{ "???", &a::imp},{ "???", &a::imp},{ "???", &a::imp},{ "ORA", &a::zpg},{ "ASL", &a::zpg},{ "???", &a::imp},{ "PHP", &a::imp},{ "ORA", nullptr},{ "ASL", &a::imp},{ "???", &a::imp},{ "???", &a::imp},{ "ORA", &a::absolute},{ "ASL", &a::absolute},{ "???", &a::imp},
+		{ "BPL", &a::relative},{ "ORA", &a::ind_Y},{ "???", &a::imp},{ "???", &a::imp},{ "???", &a::imp},{ "ORA", &a::zpgX},{ "ASL", &a::zpgX},{ "???", &a::imp},{ "CLC", &a::imp},{ "ORA", &a::absoluteY},{ "???", &a::imp},{ "???", &a::imp},{ "???", &a::imp},{ "ORA", &a::absoluteX},{ "ASL", &a::absoluteX},{ "???", &a::imp},
+		{ "JSR", &a::absolute},{ "AND", &a::ind_X},{ "???", &a::imp},{ "???", &a::imp},{ "BIT", &a::zpg},{ "AND", &a::zpg},{ "ROL", &a::zpg},{ "???", &a::imp},{ "PLP", &a::imp},{ "AND", nullptr},{ "ROL", &a::imp},{ "???", &a::imp},{ "BIT", &a::absolute},{ "AND", &a::absolute},{ "ROL", &a::absolute},{ "???", &a::imp},
+		{ "BMI", &a::relative},{ "AND", &a::ind_Y},{ "???", &a::imp},{ "???", &a::imp},{ "???", &a::imp},{ "AND", &a::zpgX},{ "ROL", &a::zpgX},{ "???", &a::imp},{ "SEC", &a::imp},{ "AND", &a::absoluteY},{ "???", &a::imp},{ "???", &a::imp},{ "???", &a::imp},{ "AND", &a::absoluteX},{ "ROL", &a::absoluteX},{ "???", &a::imp},
+		{ "RTI", &a::imp},{ "EOR", &a::ind_X},{ "???", &a::imp},{ "???", &a::imp},{ "???", &a::imp},{ "EOR", &a::zpg},{ "LSR", &a::zpg},{ "???", &a::imp},{ "PHA", &a::imp},{ "EOR", nullptr},{ "LSR", &a::imp},{ "???", &a::imp},{ "JMP", &a::absolute},{ "EOR", &a::absolute},{ "LSR", &a::absolute},{ "???", &a::imp},
+		{ "BVC", &a::relative},{ "EOR", &a::ind_Y},{ "???", &a::imp},{ "???", &a::imp},{ "???", &a::imp},{ "EOR", &a::zpgX},{ "LSR", &a::zpgX},{ "???", &a::imp},{ "CLI", &a::imp},{ "EOR", &a::absoluteY},{ "???", &a::imp},{ "???", &a::imp},{ "???", &a::imp},{ "EOR", &a::absoluteX},{ "LSR", &a::absoluteX},{ "???", &a::imp},
+		{ "RTS", &a::imp},{ "ADC", &a::ind_X},{ "???", &a::imp},{ "???", &a::imp},{ "???", &a::imp},{ "ADC", &a::zpg},{ "ROR", &a::zpg},{ "???", &a::imp},{ "PLA", &a::imp},{ "ADC", nullptr},{ "ROR", &a::imp},{ "???", &a::imp},{ "JMP", &a::indirect},{ "ADC", &a::absolute},{ "ROR", &a::absolute},{ "???", &a::imp},
+		{ "BVS", &a::relative},{ "ADC", &a::ind_Y},{ "???", &a::imp},{ "???", &a::imp},{ "???", &a::imp},{ "ADC", &a::zpgX},{ "ROR", &a::zpgX},{ "???", &a::imp},{ "SEI", &a::imp},{ "ADC", &a::absoluteY},{ "???", &a::imp},{ "???", &a::imp},{ "???", &a::imp},{ "ADC", &a::absoluteX},{ "ROR", &a::absoluteX},{ "???", &a::imp},
+		{ "???", &a::imp},{ "STA", &a::ind_X},{ "???", &a::imp},{ "???", &a::imp},{ "STY", &a::zpg},{ "STA", &a::zpg},{ "STX", &a::zpg},{ "???", &a::imp},{ "DEY", &a::imp},{ "???", &a::imp},{ "TXA", &a::imp},{ "???", &a::imp},{ "STY", &a::absolute},{ "STA", &a::absolute},{ "STX", &a::absolute},{ "???", &a::imp},
+		{ "BCC", &a::relative},{ "STA", &a::ind_Y},{ "???", &a::imp},{ "???", &a::imp},{ "STY", &a::zpgX},{ "STA", &a::zpgX},{ "STX", &a::zpgY},{ "???", &a::imp},{ "TYA", &a::imp},{ "STA", &a::absoluteY},{ "TXS", &a::imp},{ "???", &a::imp},{ "???", &a::imp},{ "STA", &a::absoluteX},{ "???", &a::imp},{ "???", &a::imp},
+		{ "LDY", nullptr},{ "LDA", &a::ind_X},{ "LDX", nullptr},{ "???", &a::imp},{ "LDY", &a::zpg},{ "LDA", &a::zpg},{ "LDX", &a::zpg},{ "???", &a::imp},{ "TAY", &a::imp},{ "LDA", nullptr},{ "TAX", &a::imp},{ "???", &a::imp},{ "LDY", &a::absolute},{ "LDA", &a::absolute},{ "LDX", &a::absolute},{ "???", &a::imp},
+		{ "BCS", &a::relative},{ "LDA", &a::ind_Y},{ "???", &a::imp},{ "???", &a::imp},{ "LDY", &a::zpgX},{ "LDA", &a::zpgX},{ "LDX", &a::zpgY},{ "???", &a::imp},{ "CLV", &a::imp},{ "LDA", &a::absoluteY},{ "TSX", &a::imp},{ "???", &a::imp},{ "LDY", &a::absoluteX},{ "LDA", &a::absoluteX},{ "LDX", &a::absoluteY},{ "???", &a::imp},
+		{ "CPY", nullptr},{ "CMP", &a::ind_X},{ "???", &a::imp},{ "???", &a::imp},{ "CPY", &a::zpg},{ "CMP", &a::zpg},{ "DEC", &a::zpg},{ "???", &a::imp},{ "INY", &a::imp},{ "CMP", nullptr},{ "DEX", &a::imp},{ "???", &a::imp},{ "CPY", &a::absolute},{ "CMP", &a::absolute},{ "DEC", &a::absolute},{ "???", &a::imp},
+		{ "BNE", &a::relative},{ "CMP", &a::ind_Y},{ "???", &a::imp},{ "???", &a::imp},{ "???", &a::imp},{ "CMP", &a::zpgX},{ "DEC", &a::zpgX},{ "???", &a::imp},{ "CLD", &a::imp},{ "CMP", &a::absoluteY},{ "NOP", &a::imp},{ "???", &a::imp},{ "???", &a::imp},{ "CMP", &a::absoluteX},{ "DEC", &a::absoluteX},{ "???", &a::imp},
+		{ "CPX", nullptr},{ "SBC", &a::ind_X},{ "???", &a::imp},{ "???", &a::imp},{ "CPX", &a::zpg},{ "SBC", &a::zpg},{ "INC", &a::zpg},{ "???", &a::imp},{ "INX", &a::imp},{ "SBC", nullptr},{ "NOP", &a::imp},{ "???", &a::imp},{ "CPX", &a::absolute},{ "SBC", &a::absolute},{ "INC", &a::absolute},{ "???", &a::imp},
+		{ "BEQ", &a::relative},{ "SBC", &a::ind_Y},{ "???", &a::imp},{ "???", &a::imp},{ "???", &a::imp},{ "SBC", &a::zpgX},{ "INC", &a::zpgX},{ "???", &a::imp},{ "SED", &a::imp},{ "SBC", &a::absoluteY},{ "NOP", &a::imp},{ "???", &a::imp},{ "???", &a::imp},{ "SBC", &a::absoluteX},{ "INC", &a::absoluteX},{ "???", &a::imp},
+	};
+}
 
 Cpu::~Cpu() {}
 
@@ -833,7 +855,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
             cycles = 2;
 
             uint8_t temp = get_flag(FLAGS::C);
-            set_flag(FLAGS::C, accumulator << 7);
+            set_flag(FLAGS::C, accumulator << 7);  // compiler gives warning, but code is correct
             accumulator = accumulator >> 1;
             if (temp) accumulator |= 0x80;
             else accumulator &= 0x7F;
@@ -1466,7 +1488,7 @@ uint8_t Cpu::ROR() {
     fetch() ;
 
     uint8_t temp = get_flag(FLAGS::C);
-    set_flag(FLAGS::C, fetched << 7);
+    set_flag(FLAGS::C, fetched << 7);  // compiler gives warning, but code is correct
     fetched = fetched >> 1;
     if (temp) fetched |= 0x80;
     else fetched &= 0x7F;
