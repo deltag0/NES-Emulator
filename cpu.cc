@@ -1,12 +1,13 @@
 #include <stdexcept>
 
+
 #include "cpu.h"
 #include "bus.h"
-
 
 Cpu::Cpu(Bus *bus): bus{bus} {}
 
 Cpu::~Cpu() {}
+
 
 void Cpu::write(uint16_t adr, uint8_t val) {
     bus->write(adr, val);

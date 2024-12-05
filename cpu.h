@@ -196,6 +196,8 @@ struct Cpu {
     void write(uint16_t adr, uint8_t val);
     uint8_t read(uint16_t adr) const;
 
+    // disassembler
+
     // get the status of the wanted flag
     uint8_t get_flag(FLAGS flag) const;
 

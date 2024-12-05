@@ -1,6 +1,8 @@
 #include "bus.h"
 
 #include "cpu.h"
+#include <iostream>
+
 
 Bus::Bus(): cpu{this} {}
 
