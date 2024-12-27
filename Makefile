@@ -2,7 +2,7 @@ CXX = g++ -std=c++20
 EXEC = run
 CXXFLAGS = -Wall -g -O -MMD
 LDFLAGS = -lgdiplus -lopengl32 -ldwmapi -lshlwapi -lgdi32
-SOURCES = olcNes.cc cpu.cc bus.cc disassembler.cc
+SOURCES = olcNes.cc cpu.cc bus.cc disassembler.cc ppu.cc cartridge.cc mapper.cc mapper_000.cc
 OBJECTS = $(SOURCES:.cc=.o)
 DEPENDS = $(SOURCES:.cc=.d)
 

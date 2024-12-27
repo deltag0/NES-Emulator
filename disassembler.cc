@@ -1,3 +1,5 @@
+#include <cmath>
+#include <iostream>
 #include <string>
 #include <map>
 
@@ -8,14 +10,14 @@
     // the cpu.cc would've been way too long, so the dissassembler 
     // is seperate. While the code is more efficient, it is much longer.
 
-	// Starting at the specified address we read an instruction
+	// Starting at the specified address we Cpu_read an instruction
 	// byte, which in  information from the lookup table
-	// as to how many  to read and what the
-	// addressing mode is. I need this info to assemble human readable
+	// as to how many  to Cpu_read and what the
+	// addressing mode is. I need this info to assemble human Cpu_readable
 	// syntax, which is different depending upon the addressing mode
 
 	// As the instruction is decoded, a std::string is assembled
-	// with the readable output
+	// with the Cpu_readable output
     std::map<uint16_t, std::string> Cpu::disassemble(uint16_t nStart, uint16_t nStop) {
         uint32_t addr = nStart;
         uint8_t value = 0x00, lo = 0x00, hi = 0x00;
@@ -39,8 +41,8 @@
             // Prefix line with instruction address
             std::string sInst = "$" + hex(addr, 4) + ": ";
 
-            // Read instruction, and get its readable name
-            uint8_t opcode = bus->read(addr, true); addr++;
+            // Cpu_read instruction, and get its Cpu_readable name
+            uint8_t opcode = bus->Cpu_read(addr, true); addr++;
             sInst += lookup[opcode].name + " ";
 
             // Get oprands from desired locations, and form the
@@ -54,66 +56,66 @@
             }
             else if (lookup[opcode].addrmode == nullptr)
             {
-                value = bus->read(addr, true); addr++;
+                value = bus->Cpu_read(addr, true); addr++;
                 sInst += "#$" + hex(value, 2) + " {IMM}";
             }
             else if (lookup[opcode].addrmode == &Cpu::zpg)
             {
-                lo = bus->read(addr, true); addr++;
+                lo = bus->Cpu_read(addr, true); addr++;
                 hi = 0x00;												
                 sInst += "$" + hex(lo, 2) + " {ZP0}";
             }
             else if (lookup[opcode].addrmode == &Cpu::zpgX)
             {
-                lo = bus->read(addr, true); addr++;
+                lo = bus->Cpu_read(addr, true); addr++;
                 hi = 0x00;														
                 sInst += "$" + hex(lo, 2) + ", X {ZPX}";
             }
             else if (lookup[opcode].addrmode == &Cpu::zpgY)
             {
-                lo = bus->read(addr, true); addr++;
+                lo = bus->Cpu_read(addr, true); addr++;
                 hi = 0x00;														
                 sInst += "$" + hex(lo, 2) + ", Y {ZPY}";
             }
             else if (lookup[opcode].addrmode == &Cpu::ind_X)
             {
-                lo = bus->read(addr, true); addr++;
+                lo = bus->Cpu_read(addr, true); addr++;
                 hi = 0x00;								
                 sInst += "($" + hex(lo, 2) + ", X) {IZX}";
             }
             else if (lookup[opcode].addrmode == &Cpu::ind_Y)
             {
-                lo = bus->read(addr, true); addr++;
+                lo = bus->Cpu_read(addr, true); addr++;
                 hi = 0x00;								
                 sInst += "($" + hex(lo, 2) + "), Y {IZY}";
             }
             else if (lookup[opcode].addrmode == &Cpu::absolute)
             {
-                lo = bus->read(addr, true); addr++;
-                hi = bus->read(addr, true); addr++;
+                lo = bus->Cpu_read(addr, true); addr++;
+                hi = bus->Cpu_read(addr, true); addr++;
                 sInst += "$" + hex((uint16_t)(hi << 8) | lo, 4) + " {ABS}";
             }
             else if (lookup[opcode].addrmode == &Cpu::absoluteX)
             {
-                lo = bus->read(addr, true); addr++;
-                hi = bus->read(addr, true); addr++;
+                lo = bus->Cpu_read(addr, true); addr++;
+                hi = bus->Cpu_read(addr, true); addr++;
                 sInst += "$" + hex((uint16_t)(hi << 8) | lo, 4) + ", X {ABX}";
             }
             else if (lookup[opcode].addrmode == &Cpu::absoluteY)
             {
-                lo = bus->read(addr, true); addr++;
-                hi = bus->read(addr, true); addr++;
+                lo = bus->Cpu_read(addr, true); addr++;
+                hi = bus->Cpu_read(addr, true); addr++;
                 sInst += "$" + hex((uint16_t)(hi << 8) | lo, 4) + ", Y {ABY}";
             }
             else if (lookup[opcode].addrmode == &Cpu::indirect)
             {
-                lo = bus->read(addr, true); addr++;
-                hi = bus->read(addr, true); addr++;
+                lo = bus->Cpu_read(addr, true); addr++;
+                hi = bus->Cpu_read(addr, true); addr++;
                 sInst += "($" + hex((uint16_t)(hi << 8) | lo, 4) + ") {IND}";
             }
             else if (lookup[opcode].addrmode == &Cpu::relative)
             {
-                value = bus->read(addr, true); addr++;
+                value = bus->Cpu_read(addr, true); addr++;
                 sInst += "$" + hex(value, 2) + " [$" + hex(addr + value, 4) + "] {REL}";
             }
 
