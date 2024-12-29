@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <iostream>
 #include <memory>
 #include <sstream>
@@ -15,12 +16,15 @@ class Debugger : public olc::PixelGameEngine {
 public:
   Debugger() { sAppName = "Debugger"; }
 
-  Bus nes; // Bus is basically the NES
+  Bus nes; // Bus is the NES
   std::map<uint16_t, std::string> mapAsm;
 
   // if run_emulation is true, debugging mode is off
   bool run_emulation = false;
   float fResidualTime = 0.0f;
+
+  // palette selected by user
+  uint8_t selected_palette = 0x00;
 
   std::string hex(uint32_t n, uint8_t d) {
     std::string s(d, '0');
@@ -165,9 +169,27 @@ public:
     if (GetKey(olc::Key::SPACE).bPressed)
       run_emulation = !run_emulation;
 
-    DrawCpu(516, 2);
+    if (GetKey(olc::Key::P).bPressed)
+      // not sure why we wrap around with
+      // 0x07 and not 0x03
+      (++selected_palette) &= 0x07;
 
+    DrawCpu(516, 2);
     DrawCode(516, 76, 26);
+
+    const int nSwatchSize = 6;
+    for (int p = 0; p < 8; p++)   // For each palette
+      for (int s = 0; s < 4; s++) // For each index
+        FillRect(516 + p * (nSwatchSize * 5) + s * nSwatchSize, 345,
+                 nSwatchSize, nSwatchSize, nes.ppu.get_palette_color(p, s));
+
+    // Draw selection reticule around selected palette
+    // DrawRect(516 + selected_palette * (nSwatchSize * 5) - 1, 339,
+    //         (nSwatchSize * 4), nSwatchSize, olc::WHITE);
+
+    // Generate Pattern Tables
+    DrawSprite(516, 352, &nes.ppu.getpatternTable(0, selected_palette));
+    DrawSprite(648, 352, &nes.ppu.getpatternTable(1, selected_palette));
 
     DrawSprite(0, 0, nes.ppu.getScreen(), 2);
     return true;
@@ -176,7 +198,7 @@ public:
 
 int main() {
   Debugger demo;
-  demo.Construct(680, 480, 2, 2);
+  demo.Construct(800, 480, 2, 2);
   demo.Start();
   return 0;
 }

@@ -33,10 +33,11 @@ Cartridge::Cartridge(const std::string &file) {
 
   nMapperID = ((header.mapper2 >> 4) << 4) | (header.mapper1 >> 4);
 
-  std::cout << "HERE\n";
   // TEMP ADDITION
+  // NOTE: the hardcoded elements are all temporary
   nMapperID = 0;
   uint8_t file_type = 1;
+  header.chr_rom_chunks = 2;
 
   if (file_type == 0) {
     // TODO:
@@ -52,7 +53,7 @@ Cartridge::Cartridge(const std::string &file) {
     for (int i = 0; i < nPRGBanks * PRG_SIZE; i++) {
       ifs >> vPRGMemory[i];
     }
-    for (int i = 0; i < nCHRBanks *  CHR_SIZE; i++) {
+    for (int i = 0; i < nCHRBanks * CHR_SIZE; i++) {
       ifs >> vCHRMemory[i];
     }
   }

@@ -2,6 +2,7 @@
 #include "ppu.h"
 #include "cartridge.h"
 #include <cstdint>
+#include <iostream>
 #include <memory>
 
 Ppu::Ppu() : sprNameTable(2), sprPatternTable(2), frame_complete(false) {
@@ -79,6 +80,9 @@ Ppu::Ppu() : sprNameTable(2), sprPatternTable(2), frame_complete(false) {
   sprNameTable[1] = std::make_unique<olc::Sprite>(256, 240);
   sprPatternTable[0] = std::make_unique<olc::Sprite>(128, 128);
   sprPatternTable[1] = std::make_unique<olc::Sprite>(128, 128);
+  control.reg = 0x00;
+  mask.reg = 0x00;
+  status.reg = 0x00;
 }
 Ppu::~Ppu() {}
 
@@ -86,8 +90,10 @@ Ppu::~Ppu() {}
 void Ppu::cpu_write(uint16_t adr, uint8_t val) {
   switch (adr) {
   case 0x0000: // control
+    control.reg = val;
     break;
-  case 0x0001: // Mask
+  case 0x0001: // mask
+    mask.reg = val;
     break;
   case 0x0002: // Status
     break;
@@ -98,20 +104,39 @@ void Ppu::cpu_write(uint16_t adr, uint8_t val) {
   case 0x0005: // Scroll
     break;
   case 0x0006: // PPU addr
+               // For the addr register of the ppu,
+               // the ppu will read the low and high byte one at a time
+               // first it reads the low byte then it reads the high byte
+               // and it stores it into the ppu addr
+    if (latched == 0) {
+      // set the high byte first
+      ppu_addr = (ppu_addr & 0x00FF) | val;
+      latched = 0;
+    } else {
+      // set the low byte second
+      ppu_addr = (ppu_addr & 0xFF00) | val;
+      latched = 1;
+    }
     break;
   case 0x0007: // PPU data
+               //
+    ppu_write(ppu_addr, val);
     break;
   }
 }
 
 // cpu reading from ppu
 uint8_t Ppu::cpu_read(uint16_t adr, bool read) {
+  uint8_t data;
   switch (adr) {
   case 0x0000:
     break;
   case 0x0001:
     break;
   case 0x0002:
+    latched = 0x00;
+    status.vblank = 0x00;
+    data = status.reg;
     break;
   case 0x0003:
     break;
@@ -122,38 +147,81 @@ uint8_t Ppu::cpu_read(uint16_t adr, bool read) {
   case 0x0006:
     break;
   case 0x0007:
+    // data register returns data stored
+    // AFTER new read.
+    data = ppu_data_buffer;
+    ppu_data_buffer = ppu_read(adr);
+
+    if (ppu_addr >= 0x3F00 && ppu_addr <= 0x3FFF) {
+      data = ppu_data_buffer;
+    }
     break;
   }
-  return 0x00;
+  return data;
 }
 
 void Ppu::ppu_write(uint16_t adr, uint8_t val) {
   adr &= 0x3FFF;
 
   if (card->ppu_write(adr, val)) {
+  } else if (adr >= 0x0000 && adr <= 0x1FFF) {
+    // this is the address range for the
+    // pattern tables
+    // one starts from 0x0000 and the other from 0x1000
+    // that bit indicates which pattern table to be accessed
+    // background or sprite
+    npatterns[adr >> 12][adr & 0x0FFF] = val;
+  } else if (adr >= 0x2000 && adr <= 0x2FFF) {
+  } else if (adr >= 0x3F00 && adr <= 0x3FFF) {
+    // This address space is for the palettes
+    // we AND the address because it has mirrors
+    // on 0x3F
+    adr &= 0x00FF;
+    // access through mirrored indexes
+    if (adr == 0x0010)
+      adr = 0x0000;
+    else if (adr == 0x0014)
+      adr = 0x0004;
+    else if (adr == 0x0018)
+      adr = 0x0008;
+    else if (adr == 0x001C)
+      adr = 0x000C;
+    palettes[adr] = val;
   }
 }
 
 uint8_t Ppu::ppu_read(uint16_t adr, bool read) {
   adr &= 0x3FFF;
   uint8_t data = 0x00;
-
+  if (read) {
+  }
   if (card->ppu_read(adr, data)) {
-  }
-  else if (adr < 0x1FFF) {
-  }
-  else if (adr >= 0x2000 && adr <= 0x2FFF) {
-  }
-  else if (adr >= 0x3F00 && adr <= 0x3FFF) {
-    // This address space is for the palettes 
-    // we AND the address because it has mirrors 
+  } else if (adr >= 0x0000 && adr <= 0x1FFF) {
+    // this is the address range for the
+    // pattern tables
+    // one starts from 0x0000 and the other from 0x1000
+    // that bit indicates which pattern table to be accessed
+    // background or sprite
+    data = npatterns[adr >> 12][adr & 0x0FFF];
+  } else if (adr >= 0x2000 && adr <= 0x2FFF) {
+  } else if (adr >= 0x3F00 && adr <= 0x3FFF) {
+    // This address space is for the palettes
+    // we AND the address because it has mirrors
     // on 0x3F
     adr &= 0x00FF;
-    if (adr == 0x0010) adr = 0x0000;
-    else if (adr == 0x0014) adr = 0x0004;
-    else if (adr == 0x0018) adr = 0x0008;
-    else if (adr == 0x001C) adr = 0x000C;
+    // might be unnsecessary, but
+    // not certain if the adr can access the background color
+    // through mirrored indexes
+    if (adr == 0x0010)
+      adr = 0x0000;
+    else if (adr == 0x0014)
+      adr = 0x0004;
+    else if (adr == 0x0018)
+      adr = 0x0008;
+    else if (adr == 0x001C)
+      adr = 0x000C;
 
+    data = adr;
   }
   return data;
 }
@@ -172,7 +240,7 @@ olc::Sprite &Ppu::getpatternTable(uint8_t i, uint8_t palette) {
       // hence multiplying by 216 and 16
       uint8_t offset = pattern_x * 256 + pattern_y * 16;
       for (int tile_y = 0; tile_y < 8; tile_y++) {
-        uint8_t lsb = ppu_read(0x1000 * i + offset + tile_y);
+        uint8_t lsb = ppu_read(0x1000 * i + offset + tile_y, true);
         // the +8 is required because the rows of the tile
         // there are 8 rows and every row is stored as a byte
         // the lsb are stored one after the other, so adding 8 brings
@@ -198,6 +266,7 @@ olc::Sprite &Ppu::getpatternTable(uint8_t i, uint8_t palette) {
       }
     }
   }
+  return *sprPatternTable[i];
 }
 
 olc::Pixel Ppu::get_palette_color(uint8_t pixel, uint8_t palette) {
@@ -210,11 +279,11 @@ olc::Pixel Ppu::get_palette_color(uint8_t pixel, uint8_t palette) {
 
 void Ppu::connectCard(Cartridge *c) { card = c; }
 
+// cycles are the horizontal rendering
+// scanlines vertical (somewhat like rows)
 void Ppu::clock() {
   sprScreen->SetPixel(cycle - 1, scanline,
                       palScreen[(rand() % 2) ? 0x3F : 0x30]);
-  cycle++;
-  // TODO: understanding this because as of now, it is still unclear
   if (cycle >= 341) {
     cycle = 0;
     scanline++;
@@ -223,6 +292,29 @@ void Ppu::clock() {
       frame_complete = true;
     }
   }
+
+  // BUG: this is what I currently believe is right to do for the rendering
+  if (scanline >= 0 && scanline <= 239) {
+    if (cycle >= 1 && cycle <= 256) {
+      // we need to actually render the things
+      // increment cycle clock by 2 after each fetching
+      // render the thing
+    } else if (cycle >= 257 && cycle <= 320) {
+      // same thing as previous cycles but we dont render
+    } else if (cycle >= 321 && cycle <= 336) {
+      // tiles are fetched and loaded into shift registers
+      // I believe they're loaded into their shift registers
+      // so we will have a sprite shift register and a background shift register
+    } else if (cycle >= 337 && cycle <= 340) {
+      // random fetches for no reason, so we can just increment cycles ig
+    }
+  } else if (scanline == 240) {
+    ;
+  } else if (scanline >= 241 && scanline <= 260) {
+    status.vblank = 1;
+    control.nmi = 1;
+  }
+  cycle++;
 }
 
 /*

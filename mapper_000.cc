@@ -1,5 +1,6 @@
 #include "mapper_000.h"
 #include <cstdint>
+#include <iostream>
 
 Mapper_000::Mapper_000(uint8_t prg_banks, uint8_t chr_banks)
     : nPRGBanks(prg_banks), nCHRBanks(chr_banks) {}

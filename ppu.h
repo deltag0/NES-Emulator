@@ -25,7 +25,17 @@ private:
   // it does not own it though, so it has a raw pointer
   Cartridge *card;
   uint8_t ntables[2][1024]; // vram memory for the nametables 0x2000 to 0x2FFF
+  // even though there are 64 color palettes,
+  // the palette color only stores an index to which
+  // index color we will point to. Size of 32 since 
+  // that's the size of 0x3f00 to 0x3f1f
   uint8_t palettes[32];
+  // the size of the pattern
+  // memory must be 4096 because
+  // the tables are 16 x 16 and 
+  // the tiles are composed of 2 8 byte
+  // planes for the low and the high bytes
+  uint8_t npatterns[2][4096];
 
   // Graphics for PPU
   // Array NES can display
@@ -58,6 +68,73 @@ private:
   // for later
   int16_t scanline = 0;
   int16_t cycle = 0;
+  // registers are how the PPU and CPU communicate together
+  // Registers are from 0x2000 to 0x2007
+  // 0x2000  ----    -----  ----  -----  ----- ----  0x2007
+  // control mask    status             scroll  addr  data
+  // 
+  // CONTROL determines some things about how to render the game
+  // Notably notifies us of VBlank which is when NMI must be switched on
+  //
+  //
+
+  // internal register of the PPU used for ppu_addr and ppu_status
+  uint8_t latched = 0x00;
+  // These 2 registries can simply be variables because they change based
+  // off the latched variable and they change fully on each fetch 
+  uint16_t ppu_addr = 0x0000;
+  uint8_t ppu_scroll = 0x00;
+  // this register also fully changes based off a fetch
+  uint8_t ppu_data_buffer = 0x00;
+  // Since unions store everything on a single memory address
+  // adding the 8bit reg variable and the struct allows us
+  // to easily manipulate any bit from the registrys
+  union PPUCTRL {
+    uint8_t reg;
+    struct {
+      uint8_t name_table_low : 1;
+      uint8_t name_table_high : 1;
+      uint8_t increment : 1;
+      uint8_t spr_patter_adr : 1;
+      uint8_t bkg_patter_adr : 1;
+      uint8_t sprite_size : 1;
+      uint8_t master_select : 1;
+      uint8_t nmi : 1;
+    };
+  } control;
+
+  union PPUMASK {
+    uint8_t reg;
+    struct {
+      uint8_t grey_scale : 1;
+      uint8_t bkg_leftmost : 1;
+      uint8_t sprite_leftmost : 1;
+      uint8_t bkg_rendering : 1;
+      uint8_t sprite_rendering : 1;
+      uint8_t red : 1;
+      uint8_t green : 1;
+      uint8_t blue : 1;
+    };
+  } mask;
+
+  union PPUSTATUS {
+    uint8_t reg;
+    struct {
+      uint8_t unused1 : 1;
+      uint8_t unused2 : 1;
+      uint8_t unused3 : 1;
+      uint8_t unused4 : 1;
+      uint8_t unused5 : 1;
+      uint8_t sprite_overflow : 1;
+      uint8_t sprite_0_hit : 1;
+      uint8_t vblank : 1;
+    };
+  } status;
+
+
+
+
+
 
 public:
   // public interface
