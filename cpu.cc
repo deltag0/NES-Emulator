@@ -10,7 +10,7 @@ Cpu::Cpu(Bus *bus) : bus{bus} {
   using a = Cpu;
 
   lookup = {
-      {"BRK", nullptr},       {"ORA", &a::ind_X},     {"???", &a::imp},
+      {"BRK", &a::imp},       {"ORA", &a::ind_X},     {"???", &a::imp},
       {"???", &a::imp},       {"???", &a::imp},       {"ORA", &a::zpg},
       {"ASL", &a::zpg},       {"???", &a::imp},       {"PHP", &a::imp},
       {"ORA", nullptr},       {"ASL", &a::imp},       {"???", &a::imp},
@@ -270,7 +270,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
     push(get_high(PC));
     push(get_low(PC));
     fetch();
-    PC = fetched;
+    PC = adr;
     break;
   }
   case Opcode::BMI: {
@@ -534,6 +534,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
     x = val;
 
     update_x_flags();
+    std::cout << "EXECUTING\n";
 
     return 0;
   }
@@ -1647,8 +1648,7 @@ uint8_t Cpu::LSR() {
 }
 
 uint8_t Cpu::JMP() {
-  fetch();
-  PC = fetched;
+  PC = adr;
 
   return 0;
 }

@@ -48,6 +48,7 @@ std::map<uint16_t, std::string> Cpu::disassemble(uint16_t nStart,
     uint8_t opcode = bus->Cpu_read(line_addr, true);
     addr++;
     sInst += lookup[opcode].name + " ";
+    if (opcode == 0x10120012) std::cout << "ADDR " <<  std::hex << static_cast<uint16_t>(opcode) << "\n";
 
     // Get oprands from desired locations, and form the
     // instruction based upon its addressing mode. These

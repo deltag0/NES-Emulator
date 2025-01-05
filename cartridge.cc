@@ -52,14 +52,8 @@ Cartridge::Cartridge(const std::string &file) {
     nCHRBanks = header.chr_rom_chunks;
     vPRGMemory.resize(nPRGBanks * PRG_SIZE);
     vCHRMemory.resize(nCHRBanks * CHR_SIZE);
-    std::ofstream ofs{"PRG.txt"};
-    for (int i = 0; i < vPRGMemory.size(); i++) {
-      ifs >> vPRGMemory[i];
-      ofs << std::hex << static_cast<uint16_t>(vPRGMemory[i]) << "\n";
-    }
-    for (int i = 0; i < vCHRMemory.size(); i++) {
-      ifs >> vCHRMemory[i];
-    }
+    ifs.read((char*)vPRGMemory.data(), vPRGMemory.size());
+    ifs.read((char*)vCHRMemory.data(), vCHRMemory.size());
   }
   if (file_type == 2) {
     // TODO:
@@ -84,7 +78,6 @@ Cartridge::Cartridge(const std::string &file) {
 bool Cartridge::cpu_read(uint16_t adr, uint8_t &data) {
   uint16_t mapped_adr{0};
   if (mapper->cpu_read_mapper(adr, mapped_adr)) {
-  // if (adr == 0xC003) std::cout << std::hex << static_cast<uint16_t>(vPRGMemory[1]) << " " << static_cast<uint16_t>(vPRGMemory[mapped_adr]) << "\n";
     data = vPRGMemory[mapped_adr];
     return true;
   }
