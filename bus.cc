@@ -16,8 +16,8 @@ void Bus::Cpu_write(uint16_t adr, uint8_t data) {
   // a CPU read/write, the cartridge has priority over the CPU
   if (card->cpu_write(adr, data)) {
 
-  }
-  else if (adr >= 0x0000 && adr <= 0x1FFF) { // the CPU has "mirrors until 0x1FF
+   }
+  if (adr >= 0x0000 && adr <= 0x1FFF) { // the CPU has "mirrors until
     cpu_ram[adr & 0x07FF] = data;
   } else if (adr >= 0x2000 && adr <= 0x3FFF) {
     ppu.cpu_write(adr & 0x0007, data);
@@ -30,8 +30,7 @@ uint8_t Bus::Cpu_read(uint16_t adr, bool bReadOnly) {
   uint8_t data{0x00};
 
   if (card->cpu_read(adr, data)) {
-  }
-  else if (adr >= 0x0000 && adr <= 0x1FFF) {
+  } else if (adr >= 0x0000 && adr <= 0x1FFF) {
     data = cpu_ram[adr & 0x07FF]; // need to do the and operation because of
                                   // mirroring which just allows the NES to
                                   // access a single address from multiple
@@ -41,6 +40,7 @@ uint8_t Bus::Cpu_read(uint16_t adr, bool bReadOnly) {
   else if (adr >= 0x2000 && adr <= 0x3FFF) {
     return ppu.cpu_read(adr & 0x0007, bReadOnly);
   }
+
   return data;
 }
 

@@ -127,7 +127,7 @@ void Ppu::cpu_write(uint16_t adr, uint8_t val) {
 
 // cpu reading from ppu
 uint8_t Ppu::cpu_read(uint16_t adr, bool read) {
-  uint8_t data;
+  uint8_t data{0x00};
   switch (adr) {
   case 0x0000:
     break;

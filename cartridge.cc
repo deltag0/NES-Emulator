@@ -1,9 +1,11 @@
 #include "cartridge.h"
+#include "bus.h"
 #include "mapper.h"
 #include "mapper_000.h"
 #include <cassert>
 #include <cstdint>
 #include <fstream>
+#include <ios>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -35,9 +37,9 @@ Cartridge::Cartridge(const std::string &file) {
 
   // TEMP ADDITION
   // NOTE: the hardcoded elements are all temporary
-  nMapperID = 0;
+  // nMapperID = 0;
   uint8_t file_type = 1;
-  header.chr_rom_chunks = 2;
+  // header.chr_rom_chunks = 2;
 
   if (file_type == 0) {
     // TODO:
@@ -50,20 +52,21 @@ Cartridge::Cartridge(const std::string &file) {
     nCHRBanks = header.chr_rom_chunks;
     vPRGMemory.resize(nPRGBanks * PRG_SIZE);
     vCHRMemory.resize(nCHRBanks * CHR_SIZE);
-    for (int i = 0; i < nPRGBanks * PRG_SIZE; i++) {
+    std::ofstream ofs{"PRG.txt"};
+    for (int i = 0; i < vPRGMemory.size(); i++) {
       ifs >> vPRGMemory[i];
+      ofs << std::hex << static_cast<uint16_t>(vPRGMemory[i]) << "\n";
     }
-    for (int i = 0; i < nCHRBanks * CHR_SIZE; i++) {
+    for (int i = 0; i < vCHRMemory.size(); i++) {
       ifs >> vCHRMemory[i];
     }
   }
-
   if (file_type == 2) {
     // TODO:
   }
+  
   switch (nMapperID) {
   case 0:
-    std::cout << "HELLO\n";
     mapper = std::move(
         std::unique_ptr<Mapper_000>{new Mapper_000{nPRGBanks, nCHRBanks}});
     break;
@@ -79,9 +82,9 @@ Cartridge::Cartridge(const std::string &file) {
 
 // cpu_read will read from the cartridge program memory using the mapper
 bool Cartridge::cpu_read(uint16_t adr, uint8_t &data) {
-
-  uint32_t mapped_adr{0};
+  uint16_t mapped_adr{0};
   if (mapper->cpu_read_mapper(adr, mapped_adr)) {
+  // if (adr == 0xC003) std::cout << std::hex << static_cast<uint16_t>(vPRGMemory[1]) << " " << static_cast<uint16_t>(vPRGMemory[mapped_adr]) << "\n";
     data = vPRGMemory[mapped_adr];
     return true;
   }

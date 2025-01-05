@@ -1,5 +1,6 @@
 #include "mapper_000.h"
 #include <cstdint>
+#include <ios>
 #include <iostream>
 
 Mapper_000::Mapper_000(uint8_t prg_banks, uint8_t chr_banks)
@@ -9,9 +10,15 @@ Mapper_000::~Mapper_000() {}
 
 // checks if the CPU can read from the PRG ROM on the cartridge, and maps it
 // to the correct address, masking it
-bool Mapper_000::cpu_read_mapper(uint16_t adr, uint32_t &mapped_adr) {
+// The cart can have much more PRG ROM memory than what the CPU can access,
+// so the memory is split into multiple parts. If there was 64KB of PRG ROM
+// then it could be split into 2 banks of 32KB fitting into 
+// 0x8000 to 0xFFFF
+bool Mapper_000::cpu_read_mapper(uint16_t adr, uint16_t &mapped_adr) {
+  if (adr == 0xC003) std::cout << std::hex << (0xC003 & 0x3FFF);
   if (adr >= 0x8000 && adr <= 0xFFFF) {
-    mapped_adr &= (nPRGBanks > 1 ? 0x7FFF : 0x3FFF);
+    mapped_adr = adr & (nPRGBanks > 1 ? 0x7FFF : 0x3FFF);
+  if (adr == 0xC003) std::cout << std::hex << mapped_adr;
     return true;
   }
   return false;
@@ -19,7 +26,7 @@ bool Mapper_000::cpu_read_mapper(uint16_t adr, uint32_t &mapped_adr) {
 
 bool Mapper_000::cpu_write_mapper(uint16_t adr, uint32_t &mapped_adr) {
   if (adr >= 0x8000 && adr <= 0xFFFF) {
-    mapped_adr &= (nPRGBanks > 1 ? 0x7FFF : 0x3FFF);
+    mapped_adr = adr & (nPRGBanks > 1 ? 0x7FFF : 0x3FFF);
     return true;
   }
   return false;

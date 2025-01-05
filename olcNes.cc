@@ -1,7 +1,10 @@
+#include <cassert>
 #include <cstdint>
+#include <ios>
 #include <iostream>
 #include <memory>
 #include <sstream>
+#include <stdint.h>
 #include <string>
 #include <utility>
 
@@ -104,10 +107,10 @@ public:
   }
 
   bool OnUserCreate() {
-    auto card = std::make_unique<Cartridge>("duck.nes");
+    auto card = std::make_unique<Cartridge>("nestest.nes");
     nes.insert_card(std::move(card));
-
-    mapAsm = nes.cpu.disassemble(0x0000, 0xFFFF);
+    
+    mapAsm = nes.cpu.disassemble(0xC000, 0xFFFF);
 
     nes.reset();
 

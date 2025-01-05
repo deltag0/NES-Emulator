@@ -8,7 +8,7 @@
 #include <memory>
 
 // uint16_t has a max value of 2^16 -1 (highest index)
-#define MAX_MEMORY 1024
+#define MAX_MEMORY 2048
 
 class Bus {
 public:
@@ -32,8 +32,6 @@ public:
 
   private:
   int total_clock_count{0};
-
-
 };
 
 #endif

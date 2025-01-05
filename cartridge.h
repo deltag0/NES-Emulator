@@ -34,10 +34,12 @@ public:
   bool ppu_read(uint16_t adr, uint8_t &data);
   bool ppu_write(uint16_t adr, uint8_t val);
 
+  // NOTE: vPRGMemory should be private
+  std::vector<uint8_t> vPRGMemory; // 16 KB
+
   // Cartridge is connected to CPU and PPU through a NOTE: mapper
   // The mapper is set up by the CPU and
 private:
-  std::vector<uint8_t> vPRGMemory; // 16KB
   std::vector<uint8_t> vCHRMemory; // 8KB
 
   std::unique_ptr<Mapper> mapper;

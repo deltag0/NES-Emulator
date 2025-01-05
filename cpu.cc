@@ -1,3 +1,5 @@
+#include <cstdint>
+#include <ios>
 #include <iostream> // for debugging
 #include <stdexcept>
 
@@ -1265,7 +1267,7 @@ void Cpu::reset() {
   adr = 0xFFFC;
   uint8_t low = read(adr);
   uint8_t high = read(adr + 1);
-  PC = convertTo_16_bit(high, low);
+  PC = convertTo_16_bit(0xC0, 0x00);
 
   fetched = 0x00;
   adr = 0x0000;
