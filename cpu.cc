@@ -5,6 +5,9 @@
 
 #include "bus.h"
 #include "cpu.h"
+#include "logging.h"
+
+uint8_t wrap_around(uint16_t val1, uint16_t val2); 
 
 Cpu::Cpu(Bus *bus) : bus{bus} {
   using a = Cpu;
@@ -212,6 +215,9 @@ void Cpu::clock() {
   // unlike real hardware, we finish the instruction in a single cycle
   // then wait out the cycles until they reach 0
   if (cycles == 0) {
+    // TODO: really simple, just need to put the debug_function in
+    // bus.cc because we need to add the ppu. Too lazy to do it now
+    debug_log_cpu(debug_out, *this, true);
     opcode = read(PC);
 
     set_flag(FLAGS::U, 1);
@@ -221,6 +227,7 @@ void Cpu::clock() {
     uint8_t additional_cycle = execute_opcode(static_cast<Opcode>(opcode));
 
     cycles += additional_cycle;
+    total_cycles += cycles;
     set_flag(FLAGS::U, 1);
   }
 
@@ -1308,13 +1315,13 @@ uint8_t Cpu::zpg() {
 }
 
 uint8_t Cpu::zpgX() {
-  adr = wrap_around(read(PC++), x);
+  adr = wrap_around(static_cast<uint16_t>(read(PC++)), static_cast<uint16_t>(x));
 
   return 0;
 }
 
 uint8_t Cpu::zpgY() {
-  adr = wrap_around(read(PC++), y);
+  adr = wrap_around(static_cast<uint16_t>(read(PC++)), static_cast<uint16_t>(y));
 
   return 0;
 }
@@ -1380,10 +1387,10 @@ uint8_t Cpu::indirect() {
 }
 
 uint8_t Cpu::ind_X() {
-  uint8_t tmp = wrap_around(read(PC++), x);
+  uint16_t tmp = static_cast<uint16_t>(read(PC++));
 
-  uint8_t low = read(static_cast<uint16_t>(tmp));
-  uint8_t high = read(static_cast<uint16_t>(wrap_around(tmp, 1)));
+  uint8_t low = read(static_cast<uint16_t>(wrap_around(tmp, static_cast<uint16_t>(x))));
+  uint8_t high = read(static_cast<uint16_t>(wrap_around(tmp + 1, static_cast<uint16_t>(x))));
 
   uint16_t eff_adr = (high << 8) | low;
 
@@ -1392,10 +1399,10 @@ uint8_t Cpu::ind_X() {
 }
 
 uint8_t Cpu::ind_Y() {
-  uint8_t adr = zpg();
+  uint16_t adr = read(PC);
 
-  uint8_t low = read(static_cast<uint16_t>(adr));
-  uint8_t high = read(static_cast<uint16_t>(wrap_around(adr, 1)));
+  uint8_t low = read(adr & 0x00FF);
+  uint8_t high = read(wrap_around(adr, 1));
 
   uint16_t eff_adr = ((high << 8) | low) + y;
 
@@ -1677,7 +1684,7 @@ void Cpu::update_x_flags() {
   set_flag(FLAGS::N, x >> 7 == 1);
 }
 
-uint8_t wrap_around(uint8_t val1, uint8_t val2) { return (val1 + val2) & 0xFF; }
+uint8_t wrap_around(uint16_t val1, uint16_t val2) { return (val1 + val2) & 0x00FF; }
 
 uint8_t sign_extend(uint8_t x, int bit_count) {
   if ((x >> (bit_count - 1)) & 1) {

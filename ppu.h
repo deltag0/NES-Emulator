@@ -68,6 +68,7 @@ private:
   // for later
   int16_t scanline = 0;
   int16_t cycle = 0;
+  int total_cycles = 0;
   // registers are how the PPU and CPU communicate together
   // Registers are from 0x2000 to 0x2007
   // 0x2000  ----    -----  ----  -----  ----- ----  0x2007

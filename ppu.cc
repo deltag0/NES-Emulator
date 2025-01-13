@@ -315,6 +315,7 @@ void Ppu::clock() {
     control.nmi = 1;
   }
   cycle++;
+  total_cycles++;
 }
 
 /*

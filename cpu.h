@@ -1,6 +1,7 @@
 #ifndef CPU_H
 #define CPU_H
 
+#include <fstream>
 #include <string>
 #include <cstdint>
 #include <vector>
@@ -176,6 +177,7 @@ class Bus;  // forward declaration for Bus
 
 // CPU is owned by Bus
 struct Cpu {
+    std::ofstream debug_out{"debug.txt"};
 
     uint8_t accumulator{0x00};
     uint8_t x{0x00}; // y register
@@ -187,6 +189,7 @@ struct Cpu {
     uint8_t status{0x00}; // flags state
     uint8_t fetched{0x00};
     uint8_t cycles{0x00};
+    int total_cycles{7};
     uint8_t opcode{0x00};
     uint16_t adr{0x0000};
     uint16_t adr_relative{0x0000};
