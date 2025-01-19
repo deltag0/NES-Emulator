@@ -177,7 +177,6 @@ class Bus;  // forward declaration for Bus
 
 // CPU is owned by Bus
 struct Cpu {
-    std::ofstream debug_out{"debug.txt"};
 
     uint8_t accumulator{0x00};
     uint8_t x{0x00}; // y register
@@ -189,7 +188,8 @@ struct Cpu {
     uint8_t status{0x00}; // flags state
     uint8_t fetched{0x00};
     uint8_t cycles{0x00};
-    int total_cycles{7};
+    // TODO: set total cycles to 0 when done debugging
+    int total_cycles{0};
     uint8_t opcode{0x00};
     uint16_t adr{0x0000};
     uint16_t adr_relative{0x0000};
@@ -291,7 +291,7 @@ struct Cpu {
 };
 
 uint16_t convertTo_16_bit(uint8_t high, uint8_t low);
-uint8_t wrap_around(uint8_t val1, uint8_t val2);
+uint8_t wrap_around(uint16_t val1, uint16_t val2);
 uint8_t get_high(uint16_t val);
 uint8_t get_low(uint16_t val);
 

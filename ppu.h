@@ -66,6 +66,8 @@ private:
    std::vector<std::unique_ptr<olc::Sprite>> sprPatternTable;
 
   // for later
+  // TODO: remove this, only for debugging (the public thing btw)
+public:
   int16_t scanline = 0;
   int16_t cycle = 0;
   int total_cycles = 0;

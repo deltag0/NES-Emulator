@@ -4,6 +4,7 @@
 #include "cartridge.h"
 #include "cpu.h"
 #include "ppu.h"
+#include <fstream>
 #include <cmath>
 #include <memory>
 
@@ -12,6 +13,7 @@
 
 class Bus {
 public:
+  std::ofstream debug_out{"debug.txt"};
   Bus();
   ~Bus();
   // CPU reads and writes from the BUS
@@ -30,7 +32,7 @@ public:
   void reset();
   void clock();
 
-  private:
+private:
   int total_clock_count{0};
 };
 

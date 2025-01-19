@@ -5,9 +5,6 @@
 
 #include "bus.h"
 #include "cpu.h"
-#include "logging.h"
-
-uint8_t wrap_around(uint16_t val1, uint16_t val2); 
 
 Cpu::Cpu(Bus *bus) : bus{bus} {
   using a = Cpu;
@@ -113,20 +110,28 @@ uint8_t Cpu::get_flag(FLAGS flag) const {
   switch (flag) {
   case FLAGS::C:
     return FLAGS::C & status;
+    break;
   case FLAGS::Z:
     return FLAGS::Z & status;
+    break;
   case FLAGS::I:
     return FLAGS::I & status;
+    break;
   case FLAGS::D:
     return FLAGS::D & status;
+    break;
   case FLAGS::B:
     return FLAGS::B & status;
+    break;
   case FLAGS::U:
     return FLAGS::U & status;
+    break;
   case FLAGS::V:
     return FLAGS::V & status;
+    break;
   case FLAGS::N:
     return FLAGS::N & status;
+    break;
   default:
     throw std::runtime_error("Invalid flag");
   }
@@ -215,9 +220,6 @@ void Cpu::clock() {
   // unlike real hardware, we finish the instruction in a single cycle
   // then wait out the cycles until they reach 0
   if (cycles == 0) {
-    // TODO: really simple, just need to put the debug_function in
-    // bus.cc because we need to add the ppu. Too lazy to do it now
-    debug_log_cpu(debug_out, *this, true);
     opcode = read(PC);
 
     set_flag(FLAGS::U, 1);
@@ -262,7 +264,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
       adr = PC + adr_relative;
 
       // if high bytes are affected we add a cycle (not sure why)
-      if ((adr & 0xFF00) != (PC & 0xFF0))
+      if ((adr & 0xFF00) != (PC & 0xFF00))
         cycles++;
 
       PC = adr;
@@ -274,6 +276,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
   case Opcode::JSR: {
     cycles = 6;
     additional = absolute();
+    PC--;
     push(get_high(PC));
     push(get_low(PC));
     fetch();
@@ -284,13 +287,13 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
     cycles = 2;
     additional = relative();
 
-    if (get_flag(FLAGS::N) == 1) {
+    if (get_flag(FLAGS::N)) {
       cycles++;
 
       adr = PC + adr_relative;
 
       // if high bytes are affected we add a cycle (not sure why)
-      if ((adr & 0xFF00) != (PC & 0xFF0))
+      if ((adr & 0xFF00) != (PC & 0xFF00))
         cycles++;
 
       PC = adr;
@@ -322,7 +325,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
       adr = PC + adr_relative;
 
       // if high bytes are affected we add a cycle (not sure why)
-      if ((adr & 0xFF00) != (PC & 0xFF0))
+      if ((adr & 0xFF00) != (PC & 0xFF00))
         cycles++;
 
       PC = adr;
@@ -336,20 +339,20 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
     uint8_t low = pull();
     uint8_t high = pull();
 
-    PC = convertTo_16_bit(high, low);
+    PC = convertTo_16_bit(high, low) + 1;
     break;
   }
   case Opcode::BVS: {
     cycles = 2;
     additional = relative();
 
-    if (get_flag(FLAGS::V) == 1) {
+    if (get_flag(FLAGS::V)) {
       cycles++;
 
       adr = PC + adr_relative;
 
       // if high bytes are affected we add a cycle (not sure why)
-      if ((adr & 0xFF00) != (PC & 0xFF0))
+      if ((adr & 0xFF00) != (PC & 0xFF00))
         cycles++;
 
       PC = adr;
@@ -362,13 +365,13 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
     cycles = 2;
     additional = relative();
 
-    if (get_flag(FLAGS::C) == 0) {
+    if (!get_flag(FLAGS::C)) {
       cycles++;
 
       adr = PC + adr_relative;
 
       // if high bytes are affected we add a cycle (not sure why)
-      if ((adr & 0xFF00) != (PC & 0xFF0))
+      if ((adr & 0xFF00) != (PC & 0xFF00))
         cycles++;
 
       PC = adr;
@@ -409,13 +412,13 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
     cycles = 2;
     additional = relative();
 
-    if (get_flag(FLAGS::Z) == 0) {
+    if (!get_flag(FLAGS::Z)) {
       cycles++;
 
       adr = PC + adr_relative;
 
       // if high bytes are affected we add a cycle (not sure why)
-      if ((adr & 0xFF00) != (PC & 0xFF0))
+      if ((adr & 0xFF00) != (PC & 0xFF00))
         cycles++;
 
       PC = adr;
@@ -439,13 +442,13 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
     cycles = 2;
     additional = relative();
 
-    if (get_flag(FLAGS::Z) == 1) {
+    if (get_flag(FLAGS::Z)) {
       cycles++;
 
       adr = PC + adr_relative;
 
       // if high bytes are affected we add a cycle (not sure why)
-      if ((adr & 0xFF00) != (PC & 0xFF0))
+      if ((adr & 0xFF00) != (PC & 0xFF00))
         cycles++;
 
       PC = adr;
@@ -541,7 +544,6 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
     x = val;
 
     update_x_flags();
-    std::cout << "EXECUTING\n";
 
     return 0;
   }
@@ -742,7 +744,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
     break;
   case Opcode::PHP_impl:
     cycles = 3;
-    push(status);
+    push(status | 0x30);
     break;
   case Opcode::CLC_impl:
     cycles = 2;
@@ -751,7 +753,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
   case Opcode::PLP_impl: {
     cycles = 4;
     uint8_t new_status = pull();
-    status = new_status;
+    status = new_status & (0b11001111);
     break;
   }
   case Opcode::SEC_impl:
@@ -899,10 +901,10 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
   case Opcode::CMP_imm: {
     cycles = 2;
     uint8_t val = read(PC++);
-
-    set_flag(FLAGS::Z, accumulator == val);
-    set_flag(FLAGS::C, accumulator > val);
-    set_flag(FLAGS::N, accumulator < val);
+    uint16_t temp = (uint16_t)accumulator - (uint16_t)val;
+    set_flag(C, accumulator >= val);
+    set_flag(Z, (temp & 0x00FF) == 0x0000);
+    set_flag(N, temp & 0x0080);
     return 0;
   }
   case Opcode::CMP_absY:
@@ -912,18 +914,18 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
     break;
   case Opcode::SBC_imm: {
     cycles = 2;
-    uint16_t val = read(PC++) ^ 0xFF;
+    uint16_t val = read(PC++) ^ 0x00FF;
 
     uint16_t temp = static_cast<uint16_t>(val) +
                     static_cast<uint16_t>(accumulator) + get_flag(FLAGS::C);
 
-    set_flag(FLAGS::C, temp > 255);
+    set_flag(FLAGS::C, temp & 0xFF00);
     set_flag(FLAGS::Z, (temp & 0x00FF) == 0);
-    set_flag(FLAGS::N, temp & 0x80);
+    set_flag(FLAGS::N, temp & 0x0080);
     set_flag(
         FLAGS::V,
-        (static_cast<uint16_t>(accumulator) ^ static_cast<uint16_t>(val)) &
-            (static_cast<uint16_t>(accumulator) ^ static_cast<uint16_t>(temp)) &
+        (static_cast<uint16_t>(accumulator) ^ static_cast<uint16_t>(temp)) &
+            (static_cast<uint16_t>(temp) ^ static_cast<uint16_t>(val)) &
             0x0080);
 
     accumulator = temp & 0x00FF;
@@ -969,7 +971,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
 
     fetch();
     set_flag(FLAGS::N, 0);
-    set_flag(FLAGS::Z, fetched == 0x00);
+    set_flag(FLAGS::Z, accumulator == 0x00);
     return 0;
   }
   case Opcode::ROR_A: {
@@ -1275,30 +1277,33 @@ void Cpu::reset() {
   adr = 0xFFFC;
   uint8_t low = read(adr);
   uint8_t high = read(adr + 1);
-  PC = convertTo_16_bit(0xC0, 0x00);
+  // TEMP: should convert to 16 bit the high and the low address
+  PC = convertTo_16_bit(0xC0, 0x04);
 
+  status = 0x24;
   fetched = 0x00;
   adr = 0x0000;
   adr_relative = 0x00;
 
-  cycles = 8;
+  cycles = 7;
+  total_cycles = 7;
 }
 
 void Cpu::push(uint8_t val) {
   // UNSURE about correctness
-  uint16_t adr = convertTo_16_bit(0x01, stack_pointer);
+  uint16_t temp = convertTo_16_bit(0x01, stack_pointer);
 
-  write(adr, val);
+  write(temp, val);
+
   stack_pointer--;
 }
 
 uint8_t Cpu::pull() {
   // UNSURE about correctness
-  uint16_t adr = convertTo_16_bit(0x01, stack_pointer);
-
-  uint8_t val = fetch();
-  write(adr, 0x00);
   stack_pointer++;
+  uint16_t temp = convertTo_16_bit(0x01, stack_pointer);
+
+  uint8_t val = read(temp);
 
   return val;
 }
@@ -1315,13 +1320,15 @@ uint8_t Cpu::zpg() {
 }
 
 uint8_t Cpu::zpgX() {
-  adr = wrap_around(static_cast<uint16_t>(read(PC++)), static_cast<uint16_t>(x));
+  adr =
+      wrap_around(static_cast<uint16_t>(read(PC++)), static_cast<uint16_t>(x));
 
   return 0;
 }
 
 uint8_t Cpu::zpgY() {
-  adr = wrap_around(static_cast<uint16_t>(read(PC++)), static_cast<uint16_t>(y));
+  adr =
+      wrap_around(static_cast<uint16_t>(read(PC++)), static_cast<uint16_t>(y));
 
   return 0;
 }
@@ -1389,8 +1396,10 @@ uint8_t Cpu::indirect() {
 uint8_t Cpu::ind_X() {
   uint16_t tmp = static_cast<uint16_t>(read(PC++));
 
-  uint8_t low = read(static_cast<uint16_t>(wrap_around(tmp, static_cast<uint16_t>(x))));
-  uint8_t high = read(static_cast<uint16_t>(wrap_around(tmp + 1, static_cast<uint16_t>(x))));
+  uint8_t low =
+      read(static_cast<uint16_t>(wrap_around(tmp, static_cast<uint16_t>(x))));
+  uint8_t high = read(
+      static_cast<uint16_t>(wrap_around(tmp + 1, static_cast<uint16_t>(x))));
 
   uint16_t eff_adr = (high << 8) | low;
 
@@ -1399,10 +1408,10 @@ uint8_t Cpu::ind_X() {
 }
 
 uint8_t Cpu::ind_Y() {
-  uint16_t adr = read(PC);
+  uint16_t temp = read(PC++);
 
-  uint8_t low = read(adr & 0x00FF);
-  uint8_t high = read(wrap_around(adr, 1));
+  uint16_t low = read(temp & 0x00FF);
+  uint16_t high = read(wrap_around(temp, 1));
 
   uint16_t eff_adr = ((high << 8) | low) + y;
 
@@ -1423,13 +1432,13 @@ uint8_t Cpu::AND() {
 }
 
 uint8_t Cpu::BCS() {
-  if (get_flag(FLAGS::C) == 1) {
+  if (get_flag(FLAGS::C)) {
     cycles++;
 
     adr = PC + adr_relative;
 
     // if high bytes are affected we add a cycle (not sure why)
-    if ((adr & 0xFF00) != (PC & 0xFF0))
+    if ((adr & 0xFF00) != (PC & 0xFF00))
       cycles++;
 
     PC = adr;
@@ -1470,30 +1479,31 @@ uint8_t Cpu::BIT() {
 
 uint8_t Cpu::CPX() {
   uint8_t val = fetch();
+  uint16_t temp = (uint16_t)x - (uint16_t)fetched;
 
-  set_flag(FLAGS::Z, x == val);
-  set_flag(FLAGS::C, x > val);
-  set_flag(FLAGS::N, x < val);
+  set_flag(FLAGS::Z, (temp & 0x00FF) == 0x0000);
+  set_flag(FLAGS::C, x >= val);
+  set_flag(FLAGS::N, temp & 0x0080);
 
   return 0;
 }
 
 uint8_t Cpu::CMP() {
-  uint8_t val = fetch();
-
-  set_flag(FLAGS::Z, accumulator == val);
-  set_flag(FLAGS::C, accumulator > val);
-  set_flag(FLAGS::N, accumulator < val);
-
+  fetch();
+  uint16_t temp = (uint16_t)accumulator - (uint16_t)fetched;
+  set_flag(C, accumulator >= fetched);
+  set_flag(Z, (temp & 0x00FF) == 0x0000);
+  set_flag(N, temp & 0x0080);
   return 1;
 }
 
 uint8_t Cpu::CPY() {
   uint8_t val = fetch();
+  uint16_t temp = (uint16_t)y - (uint16_t)fetched;
 
-  set_flag(FLAGS::Z, y == val);
-  set_flag(FLAGS::C, y > val);
-  set_flag(FLAGS::N, y < val);
+  set_flag(FLAGS::Z, (temp & 0x00FF) == 0x0000);
+  set_flag(FLAGS::C, y >= val);
+  set_flag(FLAGS::N, temp & 0x0080);
 
   return 0;
 }
@@ -1531,7 +1541,7 @@ uint8_t Cpu::ADC() {
 uint8_t Cpu::SBC() {
   fetch();
 
-  uint16_t val = fetched ^ 0xFF;
+  uint16_t val = static_cast<uint16_t>(fetched) ^ 0x00FF;
 
   uint16_t temp = static_cast<uint16_t>(val) +
                   static_cast<uint16_t>(accumulator) + get_flag(FLAGS::C);
@@ -1539,11 +1549,10 @@ uint8_t Cpu::SBC() {
   set_flag(FLAGS::C, temp > 255);
   set_flag(FLAGS::Z, (temp & 0x00FF) == 0);
   set_flag(FLAGS::N, temp & 0x80);
-  set_flag(
-      FLAGS::V,
-      (static_cast<uint16_t>(accumulator) ^ static_cast<uint16_t>(val)) &
-          (static_cast<uint16_t>(accumulator) ^ static_cast<uint16_t>(temp)) &
-          0x0080);
+  set_flag(FLAGS::V,
+           (static_cast<uint16_t>(accumulator) ^ static_cast<uint16_t>(temp)) &
+               (static_cast<uint16_t>(val) ^ static_cast<uint16_t>(temp)) &
+               0x0080);
 
   accumulator = temp & 0x00FF;
 
@@ -1626,31 +1635,22 @@ uint8_t Cpu::ROL() {
 
 uint8_t Cpu::ROR() {
   fetch();
-
-  uint8_t temp = get_flag(FLAGS::C);
-  set_flag(FLAGS::C,
-           fetched << 7); // compiler gives warning, but code is correct
-  fetched = fetched >> 1;
-  if (temp)
-    fetched |= 0x80;
-  else
-    fetched &= 0x7F;
-
-  set_flag(FLAGS::Z, fetched == 0);
-  set_flag(FLAGS::N, temp);
+  uint16_t temp = (uint16_t)(get_flag(C) << 7) | (fetched >> 1);
+  set_flag(C, fetched & 0x01);
+  set_flag(Z, (temp & 0x00FF) == 0x00);
+  set_flag(N, temp & 0x0080);
+  write(adr, temp & 0x00FF);
 
   return 0;
 }
 
 uint8_t Cpu::LSR() {
   fetch();
-
-  set_flag(FLAGS::C, fetched & 0x01);
-  write(adr, fetched >> 1);
-
-  fetch();
-  set_flag(FLAGS::N, 0);
-  set_flag(FLAGS::Z, fetched == 0x00);
+  set_flag(C, fetched & 0x0001);
+  uint16_t temp = fetched >> 1;
+  set_flag(Z, (temp & 0x00FF) == 0x0000);
+  set_flag(N, temp & 0x0080);
+  write(adr, temp & 0x00FF);
   return 0;
 }
 
@@ -1684,7 +1684,9 @@ void Cpu::update_x_flags() {
   set_flag(FLAGS::N, x >> 7 == 1);
 }
 
-uint8_t wrap_around(uint16_t val1, uint16_t val2) { return (val1 + val2) & 0x00FF; }
+uint8_t wrap_around(uint16_t val1, uint16_t val2) {
+  return (val1 + val2) & 0x00FF;
+}
 
 uint8_t sign_extend(uint8_t x, int bit_count) {
   if ((x >> (bit_count - 1)) & 1) {

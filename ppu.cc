@@ -110,7 +110,7 @@ void Ppu::cpu_write(uint16_t adr, uint8_t val) {
                // and it stores it into the ppu addr
     if (latched == 0) {
       // set the high byte first
-      ppu_addr = (ppu_addr & 0x00FF) | val;
+      ppu_addr = (ppu_addr & 0x00FF) | (val << 8);
       latched = 0;
     } else {
       // set the low byte second
@@ -133,10 +133,13 @@ uint8_t Ppu::cpu_read(uint16_t adr, bool read) {
     break;
   case 0x0001:
     break;
-  case 0x0002:
+  case 0x0002:  // Status register
+    // setting the status vblank to 1 is temporary
+    status.vblank = 1;
+    // Not sure why data is anded with 0xE0, but source said it was doen like this
+    data = status.reg & 0xE0;
     latched = 0x00;
     status.vblank = 0x00;
-    data = status.reg;
     break;
   case 0x0003:
     break;
@@ -152,6 +155,8 @@ uint8_t Ppu::cpu_read(uint16_t adr, bool read) {
     data = ppu_data_buffer;
     ppu_data_buffer = ppu_read(adr);
 
+    // For address range of palettes, there is no delay
+    // for reading data from ppu
     if (ppu_addr >= 0x3F00 && ppu_addr <= 0x3FFF) {
       data = ppu_data_buffer;
     }

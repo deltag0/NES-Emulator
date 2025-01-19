@@ -15,8 +15,7 @@ void Bus::Cpu_write(uint16_t adr, uint8_t data) {
   // if ever a cartridge read/write operation interferes with
   // a CPU read/write, the cartridge has priority over the CPU
   if (card->cpu_write(adr, data)) {
-
-   }
+  }
   if (adr >= 0x0000 && adr <= 0x1FFF) { // the CPU has "mirrors until
     cpu_ram[adr & 0x07FF] = data;
   } else if (adr >= 0x2000 && adr <= 0x3FFF) {
@@ -50,11 +49,11 @@ void Bus::reset() {
 }
 
 void Bus::clock() {
-  ppu.clock();
-  if (total_clock_count % 3 == 0) {
-    cpu.clock();
+  cpu.clock();
+  for (int i = 0; i < 3; i++) {
+    ppu.clock();
+    total_clock_count++;
   }
-  total_clock_count++;
 }
 
 void Bus::insert_card(std::unique_ptr<Cartridge> c) {
