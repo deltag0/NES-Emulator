@@ -3,6 +3,7 @@
 #include "cartridge.h"
 #include "olcPixelGameEngine.h"
 #include <cstdint>
+#include <fstream>
 #include <memory>
 #include <vector>
 class Ppu {
@@ -23,6 +24,8 @@ public:
 private:
   // PPU also has acces to the cartridge, so we will keep a reference to it
   // it does not own it though, so it has a raw pointer
+  // TEMP: LOGGING FOR DEBUG
+  std::ofstream ofs{"ppu_pattern.txt"};
   Cartridge *card;
   uint8_t ntables[2][1024]; // vram memory for the nametables 0x2000 to 0x2FFF
   // even though there are 64 color palettes,
@@ -71,6 +74,19 @@ public:
   int16_t scanline = 0;
   int16_t cycle = 0;
   int total_cycles = 0;
+  // tile_adress is the adress needing to be read from the nametable to get the index pointing to the tile
+  uint16_t tile_adr = 0x0000;
+  // attribute_adress is the adress needing to be read from the attribute table to get the palette of a tile
+  uint16_t attribute_adress = 0x0000;
+  // index pointing to the tile from the pattern table
+  uint8_t pattern_table_low = 0x00;
+  uint8_t pattern_table_high = 0x00;
+  // palette value where bit 0-1 are the palettes for bottom right
+  // the bits 2-3 are the paletters for bottom left
+  // 4-5 for top right and 6-7 for top left
+  // documentation is very unclear so TODO: test this and make sure this is right
+  uint8_t palette_bits = 0x00;
+
   // registers are how the PPU and CPU communicate together
   // Registers are from 0x2000 to 0x2007
   // 0x2000  ----    -----  ----  -----  ----- ----  0x2007
@@ -85,8 +101,9 @@ public:
   uint8_t latched = 0x00;
   // These 2 registries can simply be variables because they change based
   // off the latched variable and they change fully on each fetch 
-  uint16_t ppu_addr = 0x0000;
-  uint8_t ppu_scroll = 0x00;
+  uint16_t ppu_addr = 0x0000;  // adress to read from for rendering
+  uint16_t temp_ppu_addr = 0x0000;
+  uint8_t ppu_scroll = 0x00;  // fine-x scrolling register (unsure about its usages)
   // this register also fully changes based off a fetch
   uint8_t ppu_data_buffer = 0x00;
   // Since unions store everything on a single memory address

@@ -139,7 +139,7 @@ uint8_t Ppu::cpu_read(uint16_t adr, bool read) {
     // Not sure why data is anded with 0xE0, but source said it was doen like this
     data = status.reg & 0xE0;
     latched = 0x00;
-    status.vblank = 0x00;
+    /* status.vblank = 0x00; */
     break;
   case 0x0003:
     break;
@@ -175,8 +175,14 @@ void Ppu::ppu_write(uint16_t adr, uint8_t val) {
     // one starts from 0x0000 and the other from 0x1000
     // that bit indicates which pattern table to be accessed
     // background or sprite
-    npatterns[adr >> 12][adr & 0x0FFF] = val;
+    npatterns[(adr & 0x1000) >> 12][adr & 0x0FFF] = val;
   } else if (adr >= 0x2000 && adr <= 0x2FFF) {
+    int name_table_idx = 0;
+    if (adr > 0x2400) {
+      name_table_idx = 1;
+    }
+    ntables[name_table_idx][adr & 0x23FF - 0x2000] = val;
+
   } else if (adr >= 0x3F00 && adr <= 0x3FFF) {
     // This address space is for the palettes
     // we AND the address because it has mirrors
@@ -207,8 +213,13 @@ uint8_t Ppu::ppu_read(uint16_t adr, bool read) {
     // one starts from 0x0000 and the other from 0x1000
     // that bit indicates which pattern table to be accessed
     // background or sprite
-    data = npatterns[adr >> 12][adr & 0x0FFF];
+    data = npatterns[(adr & 0x1000) >> 12][adr & 0x0FFF];
   } else if (adr >= 0x2000 && adr <= 0x2FFF) {
+    int name_table_idx = 0;
+    if (adr > 0x2400) {
+      name_table_idx = 1;
+    }
+    data = ntables[name_table_idx][adr & 0x23FF - 0x2000]; 
   } else if (adr >= 0x3F00 && adr <= 0x3FFF) {
     // This address space is for the palettes
     // we AND the address because it has mirrors
@@ -231,6 +242,7 @@ uint8_t Ppu::ppu_read(uint16_t adr, bool read) {
   return data;
 }
 
+
 olc::Sprite *Ppu::getScreen() const { return sprScreen.get(); }
 
 // for this function, we'll have to loop through the pattern tables
@@ -239,20 +251,21 @@ olc::Sprite *Ppu::getScreen() const { return sprScreen.get(); }
 // we do this by shifting the value of the row of the tile
 //
 olc::Sprite &Ppu::getpatternTable(uint8_t i, uint8_t palette) {
-  for (int pattern_y = 0; pattern_y < 16; pattern_y++) {
-    for (int pattern_x = 0; pattern_x < 16; pattern_x++) {
-      // offset is in bytes, so calculating 2D index is considering the bytes
-      // hence multiplying by 216 and 16
-      uint8_t offset = pattern_x * 256 + pattern_y * 16;
-      for (int tile_y = 0; tile_y < 8; tile_y++) {
-        uint8_t lsb = ppu_read(0x1000 * i + offset + tile_y, true);
+  for (int pattern_x = 0; pattern_x < 16; pattern_x++) {
+    for (int pattern_y = 0; pattern_y < 16; pattern_y++) {
+      // offset is in bytes, so55 calculating 2D index is considering the bytes
+      // hence multiplying by 256 and 16
+      // using the formula: y * width + x
+      uint16_t offset = pattern_x * 256 + pattern_y * 16;
+      for (int tile_x = 0; tile_x < 8; tile_x++) {
+        uint8_t lsb = ppu_read(0x1000 * i + offset + tile_x, true);
         // the +8 is required because the rows of the tile
         // there are 8 rows and every row is stored as a byte
         // the lsb are stored one after the other, so adding 8 brings
         // us directly to the msb
-        uint8_t msb = ppu_read(0x1000 * i + offset + tile_y + 8);
+        uint8_t msb = ppu_read(0x1000 * i + offset + tile_x + 8, true);
 
-        for (int tile_x = 0; tile_x < 8; tile_x++) {
+        for (int tile_y = 0; tile_y < 8; tile_y++) {
           uint8_t pixel = (msb & 0x01) + (lsb & 0x01);
 
           lsb = lsb >> 1;
@@ -264,8 +277,8 @@ olc::Sprite &Ppu::getpatternTable(uint8_t i, uint8_t palette) {
           // so when we're done with the tile
           // we move on according to pattern_y and pattern_x
           // indicating which pattern we're on
-          sprPatternTable[i]->SetPixel(pattern_x * 8 + (7 - tile_x),
-                                       pattern_y * 8 + tile_y,
+          sprPatternTable[i]->SetPixel(pattern_y * 8 + (7 - tile_y),
+                                       pattern_x * 8 + tile_x,
                                        get_palette_color(pixel, palette));
         }
       }
@@ -279,7 +292,7 @@ olc::Pixel Ppu::get_palette_color(uint8_t pixel, uint8_t palette) {
   // each location stores 4 bytes of types of colors (1 byte for each type)
   // and that gets us the index, then add the pixel to choose which of the 4
   // colors we want
-  return palScreen[ppu_read(0x3F00 + (palette * 4) + pixel)];
+  return palScreen[ppu_read(0x3F00 + (palette << 2) + pixel) & 0x3F];
 }
 
 void Ppu::connectCard(Cartridge *c) { card = c; }
@@ -297,6 +310,50 @@ void Ppu::clock() {
       frame_complete = true;
     }
   }
+
+  // These are the addresses that must be read from the nametable or attribute table to get the necessary info
+  tile_adr = 0x2000 | (ppu_addr & 0x0FFF);
+  attribute_adress = 0x23C0 | (ppu_addr & 0x0C00) | ((ppu_addr >> 4) & 0x38) | ((ppu_addr >> 2) & 0x07);
+
+  // can be reduced to 4 reads like the "real" NES, but this is fine too
+  // memmory accesses by the ppu to get information to render (8 cycles total)
+  palette_bits = ppu_read(attribute_adress);
+
+  // variables to help determine the quandrant and to render the pixels
+  uint8_t coarse_x = ppu_addr & 0b0000000000011111;
+  uint8_t coarse_y = ppu_addr & 0b0000001111100000;
+  uint8_t fine_y = ppu_addr & 0b0111000000000000;
+  // TODO: make sure this is right, not sure...
+  pattern_table_low = ppu_read(ppu_read(tile_adr) * 16 + fine_y);
+  pattern_table_high = ppu_read(ppu_read(tile_adr) * 16 + 8 + fine_y);
+
+  bool x_check =  coarse_x % 4 || (coarse_x - 1) % 4;
+  bool y_check =  coarse_y % 4 || (coarse_y - 1) % 4;
+
+  // steps to determine wich palette bits we need from the attribute table
+  // so it determines which quadrant we get the palette from
+  if (!x_check && !y_check) {
+    palette_bits &= 0b00000011;
+  }
+  else if (y_check && !x_check) {
+    palette_bits &= 0b00110000;
+  }
+  else if (x_check && !y_check) {
+    palette_bits &= 0b00001100;;
+  }
+  else {
+    palette_bits &= 0b11000000;
+  }
+
+  // rendering the pixels for the current scanline (fine_y)
+  for (int i = 0; i < 8; i++) {
+    uint8_t pixel = (pattern_table_high & 0x01) + (pattern_table_low & 0x01);
+    pattern_table_high = pattern_table_high >> 1;
+    pattern_table_low = pattern_table_low >> 1;
+    sprScreen->SetPixel(coarse_x * 8 + (7 - i), coarse_y * 8 + fine_y, get_palette_color(pixel, palette_bits));
+  }
+
+
 
   // BUG: this is what I currently believe is right to do for the rendering
   if (scanline >= 0 && scanline <= 239) {
