@@ -73,6 +73,7 @@ private:
 public:
   int16_t scanline = 0;
   int16_t cycle = 0;
+  int buffer_cycles = 0;
   int total_cycles = 0;
   // tile_adress is the adress needing to be read from the nametable to get the index pointing to the tile
   uint16_t tile_adr = 0x0000;
@@ -103,7 +104,7 @@ public:
   // off the latched variable and they change fully on each fetch 
   uint16_t ppu_addr = 0x0000;  // adress to read from for rendering
   uint16_t temp_ppu_addr = 0x0000;
-  uint8_t ppu_scroll = 0x00;  // fine-x scrolling register (unsure about its usages)
+  uint8_t fine_x = 0x00;  // fine-x scrolling register (unsure about its usages)
   // this register also fully changes based off a fetch
   uint8_t ppu_data_buffer = 0x00;
   // Since unions store everything on a single memory address

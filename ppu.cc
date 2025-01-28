@@ -133,10 +133,11 @@ uint8_t Ppu::cpu_read(uint16_t adr, bool read) {
     break;
   case 0x0001:
     break;
-  case 0x0002:  // Status register
+  case 0x0002: // Status register
     // setting the status vblank to 1 is temporary
     status.vblank = 1;
-    // Not sure why data is anded with 0xE0, but source said it was doen like this
+    // Not sure why data is anded with 0xE0, but source said it was doen like
+    // this
     data = status.reg & 0xE0;
     latched = 0x00;
     /* status.vblank = 0x00; */
@@ -219,7 +220,7 @@ uint8_t Ppu::ppu_read(uint16_t adr, bool read) {
     if (adr > 0x2400) {
       name_table_idx = 1;
     }
-    data = ntables[name_table_idx][adr & 0x23FF - 0x2000]; 
+    data = ntables[name_table_idx][adr & 0x23FF - 0x2000];
   } else if (adr >= 0x3F00 && adr <= 0x3FFF) {
     // This address space is for the palettes
     // we AND the address because it has mirrors
@@ -241,7 +242,6 @@ uint8_t Ppu::ppu_read(uint16_t adr, bool read) {
   }
   return data;
 }
-
 
 olc::Sprite *Ppu::getScreen() const { return sprScreen.get(); }
 
@@ -300,6 +300,41 @@ void Ppu::connectCard(Cartridge *c) { card = c; }
 // cycles are the horizontal rendering
 // scanlines vertical (somewhat like rows)
 void Ppu::clock() {
+  // TODO: clean this up
+  if (buffer_cycles > 0) {
+    // increment fine_x
+    buffer_cycles--;
+    fine_x++;
+
+    if (buffer_cycles == 0) {
+      // I render the entire tile row at once because it's simpler to emulate this way
+      // so we can just update the coarse_x when we run out of buffer cycles
+      // and reset fine_x
+      fine_x = 0;
+      ppu_addr++;
+
+      // TODO: figure out if we need to switch nametables because
+      // we might need to?
+      if ((ppu_addr & 0x001F) == 32) {
+        // reset coarse_x
+        ppu_addr &= ~0x001F;
+
+        // increment fine_y
+        ppu_addr += 0x1000;
+
+        if ((ppu_addr & 0x7000) == 8) {
+          // reset fine_y
+          ppu_addr &= ~0x7000;
+
+          // increment coarse_y
+          ppu_addr += 0x0020;
+        }
+      }
+    }
+
+    return;
+  }
+
   sprScreen->SetPixel(cycle - 1, scanline,
                       palScreen[(rand() % 2) ? 0x3F : 0x30]);
   if (cycle >= 341) {
@@ -311,56 +346,62 @@ void Ppu::clock() {
     }
   }
 
-  // These are the addresses that must be read from the nametable or attribute table to get the necessary info
-  tile_adr = 0x2000 | (ppu_addr & 0x0FFF);
-  attribute_adress = 0x23C0 | (ppu_addr & 0x0C00) | ((ppu_addr >> 4) & 0x38) | ((ppu_addr >> 2) & 0x07);
-
-  // can be reduced to 4 reads like the "real" NES, but this is fine too
-  // memmory accesses by the ppu to get information to render (8 cycles total)
-  palette_bits = ppu_read(attribute_adress);
-
-  // variables to help determine the quandrant and to render the pixels
-  uint8_t coarse_x = ppu_addr & 0b0000000000011111;
-  uint8_t coarse_y = ppu_addr & 0b0000001111100000;
-  uint8_t fine_y = ppu_addr & 0b0111000000000000;
-  // TODO: make sure this is right, not sure...
-  pattern_table_low = ppu_read(ppu_read(tile_adr) * 16 + fine_y);
-  pattern_table_high = ppu_read(ppu_read(tile_adr) * 16 + 8 + fine_y);
-
-  bool x_check =  coarse_x % 4 || (coarse_x - 1) % 4;
-  bool y_check =  coarse_y % 4 || (coarse_y - 1) % 4;
-
-  // steps to determine wich palette bits we need from the attribute table
-  // so it determines which quadrant we get the palette from
-  if (!x_check && !y_check) {
-    palette_bits &= 0b00000011;
-  }
-  else if (y_check && !x_check) {
-    palette_bits &= 0b00110000;
-  }
-  else if (x_check && !y_check) {
-    palette_bits &= 0b00001100;;
-  }
-  else {
-    palette_bits &= 0b11000000;
-  }
-
-  // rendering the pixels for the current scanline (fine_y)
-  for (int i = 0; i < 8; i++) {
-    uint8_t pixel = (pattern_table_high & 0x01) + (pattern_table_low & 0x01);
-    pattern_table_high = pattern_table_high >> 1;
-    pattern_table_low = pattern_table_low >> 1;
-    sprScreen->SetPixel(coarse_x * 8 + (7 - i), coarse_y * 8 + fine_y, get_palette_color(pixel, palette_bits));
-  }
-
-
-
   // BUG: this is what I currently believe is right to do for the rendering
   if (scanline >= 0 && scanline <= 239) {
     if (cycle >= 1 && cycle <= 256) {
       // we need to actually render the things
       // increment cycle clock by 2 after each fetching
       // render the thing
+      // These are the addresses that must be read from the nametable or
+      // attribute table to get the necessary info
+      tile_adr = 0x2000 | (ppu_addr & 0x0FFF);
+      attribute_adress = 0x23C0 | (ppu_addr & 0x0C00) |
+                         ((ppu_addr >> 4) & 0x38) | ((ppu_addr >> 2) & 0x07);
+
+      // can be reduced to 4 reads like the "real" NES, but this is fine too
+      // memmory accesses by the ppu to get information to render (8 cycles
+      // total)
+      palette_bits = ppu_read(attribute_adress);
+
+      // variables to help determine the quandrant and to render the pixels
+      uint8_t coarse_x = ppu_addr & 0b0000000000011111;
+      uint8_t coarse_y = ppu_addr & 0b0000001111100000;
+      uint8_t fine_y = ppu_addr & 0b0111000000000000;
+      // TODO: make sure this is right, not sure...
+      pattern_table_low = ppu_read(ppu_read(tile_adr) * 16 + fine_y);
+      pattern_table_high = ppu_read(ppu_read(tile_adr) * 16 + 8 + fine_y);
+
+      bool x_check = coarse_x % 4 || (coarse_x - 1) % 4;
+      bool y_check = coarse_y % 4 || (coarse_y - 1) % 4;
+
+      // steps to determine wich palette bits we need from the attribute table
+      // so it determines which quadrant we get the palette from
+      if (!x_check && !y_check) {
+        palette_bits &= 0b00000011;
+      } else if (y_check && !x_check) {
+        palette_bits &= 0b00110000;
+      } else if (x_check && !y_check) {
+        palette_bits &= 0b00001100;
+      } else {
+        palette_bits &= 0b11000000;
+      }
+
+      // rendering the pixels for the current scanline (fine_y)
+      for (int i = 0; i < 8; i++) {
+        uint8_t pixel =
+            (pattern_table_high & 0x01) + (pattern_table_low & 0x01);
+        pattern_table_high = pattern_table_high >> 1;
+        pattern_table_low = pattern_table_low >> 1;
+        sprScreen->SetPixel(coarse_x * 8 + (7 - i), coarse_y * 8 + fine_y,
+                            get_palette_color(pixel, palette_bits));
+
+        // update the fine_x register since we're moving along the scanline
+        fine_x++;
+      }
+
+      buffer_cycles += 8;
+      cycle += 8;
+      total_cycles += 8;
     } else if (cycle >= 257 && cycle <= 320) {
       // same thing as previous cycles but we dont render
     } else if (cycle >= 321 && cycle <= 336) {
@@ -369,6 +410,8 @@ void Ppu::clock() {
       // so we will have a sprite shift register and a background shift register
     } else if (cycle >= 337 && cycle <= 340) {
       // random fetches for no reason, so we can just increment cycles ig
+    } else {
+      cycle++;
     }
   } else if (scanline == 240) {
     ;
