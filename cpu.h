@@ -188,7 +188,6 @@ struct Cpu {
     uint8_t status{0x00}; // flags state
     uint8_t fetched{0x00};
     uint8_t cycles{0x00};
-    // TODO: set total cycles to 0 when done debugging
     int total_cycles{0};
     uint8_t opcode{0x00};
     uint16_t adr{0x0000};

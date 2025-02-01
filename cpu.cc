@@ -1278,7 +1278,7 @@ void Cpu::reset() {
   uint8_t low = read(adr);
   uint8_t high = read(adr + 1);
   // TEMP: should convert to 16 bit the high and the low address
-  PC = convertTo_16_bit(0xC0, 0x04);
+  PC = convertTo_16_bit(high, low);
 
   status = 0x24;
   fetched = 0x00;
@@ -1671,17 +1671,17 @@ uint8_t Cpu::LDA() {
 
 void Cpu::update_accumulator_flags() {
   set_flag(FLAGS::Z, accumulator == 0x00);
-  set_flag(FLAGS::N, accumulator >> 7 == 1);
+  set_flag(FLAGS::N, (accumulator >> 7) == 1);
 }
 
 void Cpu::update_y_flags() {
   set_flag(FLAGS::Z, y == 0x00);
-  set_flag(FLAGS::N, y >> 7 == 1);
+  set_flag(FLAGS::N, (y >> 7) == 1);
 }
 
 void Cpu::update_x_flags() {
   set_flag(FLAGS::Z, x == 0x00);
-  set_flag(FLAGS::N, x >> 7 == 1);
+  set_flag(FLAGS::N, (x >> 7) == 1);
 }
 
 uint8_t wrap_around(uint16_t val1, uint16_t val2) {

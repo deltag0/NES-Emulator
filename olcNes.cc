@@ -158,6 +158,7 @@ public:
 
     else {
       if (GetKey(olc::Key::C).bPressed) {
+        std::cout << std::hex << static_cast<uint16_t>(nes.ppu.status.vblank) << "\n";
         // clock the NES until we have completed an instruction
         do {
           nes.clock();
@@ -181,6 +182,40 @@ public:
         do {
           nes.clock();
         } while (nes.cpu.complete());
+      }
+      if (GetKey(olc::Key::J).bPressed) {
+        for (int i = 0; i < 128; i++) {
+          // clock the NES until we have completed an instruction
+          do {
+            nes.clock();
+          } while (!nes.cpu.complete());
+
+          debug_log_cpu(nes.debug_out, nes.cpu, nes.ppu, debug);
+          // set up CPU for next instruction
+          // because its clock is slower, it might have more cycles
+          do {
+            nes.clock();
+          } while (nes.cpu.complete());
+        }
+      }
+      if (GetKey(olc::Key::I).bPressed) {
+        uint16_t val{0x0000};
+        std::cout << "Enter an address to jump to: "; 
+        std::cin >> std::hex >> val;
+        std::cout << "DONE\n";
+        while (nes.cpu.PC != val) {
+          // clock the NES until we have completed an instruction
+          do {
+            nes.clock();
+          } while (!nes.cpu.complete());
+
+          debug_log_cpu(nes.debug_out, nes.cpu, nes.ppu, debug);
+          // set up CPU for next instruction
+          // because its clock is slower, it might have more cycles
+          do {
+            nes.clock();
+          } while (nes.cpu.complete());
+        }
       }
     }
 

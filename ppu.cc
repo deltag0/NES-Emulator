@@ -91,6 +91,9 @@ void Ppu::cpu_write(uint16_t adr, uint8_t val) {
   switch (adr) {
   case 0x0000: // control
     control.reg = val;
+    // TODO: in the debugger this flag gets activated when the val is 0x10
+    // not sure why that's the case...
+    status.unused5 = 1;
     break;
   case 0x0001: // mask
     mask.reg = val;
@@ -135,12 +138,10 @@ uint8_t Ppu::cpu_read(uint16_t adr, bool read) {
     break;
   case 0x0002: // Status register
     // setting the status vblank to 1 is temporary
-    status.vblank = 1;
-    // Not sure why data is anded with 0xE0, but source said it was doen like
-    // this
-    data = status.reg & 0xE0;
+    /* status.vblank = 1; */
+    data = status.reg; 
     latched = 0x00;
-    /* status.vblank = 0x00; */
+    status.vblank = 0x00;
     break;
   case 0x0003:
     break;
@@ -182,7 +183,7 @@ void Ppu::ppu_write(uint16_t adr, uint8_t val) {
     if (adr > 0x2400) {
       name_table_idx = 1;
     }
-    ntables[name_table_idx][adr & 0x23FF - 0x2000] = val;
+    ntables[name_table_idx][(adr & 0x23FF) - 0x2000] = val;
 
   } else if (adr >= 0x3F00 && adr <= 0x3FFF) {
     // This address space is for the palettes
@@ -220,7 +221,7 @@ uint8_t Ppu::ppu_read(uint16_t adr, bool read) {
     if (adr > 0x2400) {
       name_table_idx = 1;
     }
-    data = ntables[name_table_idx][adr & 0x23FF - 0x2000];
+    data = ntables[name_table_idx][(adr & 0x23FF) - 0x2000];
   } else if (adr >= 0x3F00 && adr <= 0x3FFF) {
     // This address space is for the palettes
     // we AND the address because it has mirrors
@@ -300,54 +301,76 @@ void Ppu::connectCard(Cartridge *c) { card = c; }
 // cycles are the horizontal rendering
 // scanlines vertical (somewhat like rows)
 void Ppu::clock() {
-  // TODO: clean this up
+  if (status.vblank)
+    return;
+
   if (buffer_cycles > 0) {
     // increment fine_x
     buffer_cycles--;
     fine_x++;
 
     if (buffer_cycles == 0) {
-      // I render the entire tile row at once because it's simpler to emulate this way
-      // so we can just update the coarse_x when we run out of buffer cycles
-      // and reset fine_x
       fine_x = 0;
-      ppu_addr++;
-
       // TODO: figure out if we need to switch nametables because
       // we might need to?
-      if ((ppu_addr & 0x001F) == 32) {
+
+      if ((ppu_addr & 0x001F) == 31) {
+
         // reset coarse_x
         ppu_addr &= ~0x001F;
 
-        // increment fine_y
-        ppu_addr += 0x1000;
-
-        if ((ppu_addr & 0x7000) == 8) {
+        if (((ppu_addr & 0x7000) >> 12) == 7) {
           // reset fine_y
           ppu_addr &= ~0x7000;
 
-          // increment coarse_y
-          ppu_addr += 0x0020;
+          if (((ppu_addr & 0x03E0) >> 5) == 29) {
+            // TODO: this is temporary since scanline needs to be reset to -1
+            // also there's a problem with the scanlines since it only gets to
+            // 210
+            frame_complete = true;
+            // reset coarse_y
+            ppu_addr &= ~0x03E0;
+
+            for (int row = 0; row < 240; row++) {
+              for (int col = 0; col < 256; col++) {
+                sprScreen->SetPixel(col, row, 0x00);
+              }
+            }
+          } else {
+            // increment coarse_y
+            ppu_addr += 0x0020;
+          }
+        } else {
+          // increment fine_y
+          ppu_addr += 0x1000;
         }
+      } else {
+        // increment coarse_x
+        ppu_addr++;
       }
+
+      // I render the entire tile row at once because it's simpler to emulate
+      // this way so we can just update the coarse_x when we run out of buffer
+      // cycles and reset fine_x
     }
 
     return;
   }
 
-  sprScreen->SetPixel(cycle - 1, scanline,
-                      palScreen[(rand() % 2) ? 0x3F : 0x30]);
-  if (cycle >= 341) {
-    cycle = 0;
-    scanline++;
-    if (scanline >= 261) {
-      scanline = -1;
-      frame_complete = true;
-    }
-  }
+  // this part of code was only temporary for getting a static screen
+  /* sprScreen->SetPixel(cycle - 1, scanline, */
+  /*                     palScreen[(rand() % 2) ? 0x3F : 0x30]); */
+  /* if (cycle >= 341) { */
+  /*   cycle = 0; */
+  /*   scanline++; */
+  /*   if (scanline >= 261) { */
+  /*     scanline = -1; */
+  /*     frame_complete = true; */
+  /*   } */
+  /* } */
 
-  // BUG: this is what I currently believe is right to do for the rendering
   if (scanline >= 0 && scanline <= 239) {
+
     if (cycle >= 1 && cycle <= 256) {
       // we need to actually render the things
       // increment cycle clock by 2 after each fetching
@@ -365,8 +388,8 @@ void Ppu::clock() {
 
       // variables to help determine the quandrant and to render the pixels
       uint8_t coarse_x = ppu_addr & 0b0000000000011111;
-      uint8_t coarse_y = ppu_addr & 0b0000001111100000;
-      uint8_t fine_y = ppu_addr & 0b0111000000000000;
+      uint8_t coarse_y = (ppu_addr & 0b0000001111100000) >> 5;
+      uint8_t fine_y = (ppu_addr & 0b0111000000000000) >> 12;
       // TODO: make sure this is right, not sure...
       pattern_table_low = ppu_read(ppu_read(tile_adr) * 16 + fine_y);
       pattern_table_high = ppu_read(ppu_read(tile_adr) * 16 + 8 + fine_y);
@@ -394,33 +417,51 @@ void Ppu::clock() {
         pattern_table_low = pattern_table_low >> 1;
         sprScreen->SetPixel(coarse_x * 8 + (7 - i), coarse_y * 8 + fine_y,
                             get_palette_color(pixel, palette_bits));
-
-        // update the fine_x register since we're moving along the scanline
-        fine_x++;
       }
 
       buffer_cycles += 8;
       cycle += 8;
       total_cycles += 8;
     } else if (cycle >= 257 && cycle <= 320) {
-      // same thing as previous cycles but we dont render
+      // TODO: This is important for rendering the sprites, so for now I'll just
+      // simulate adding cycles
+      cycle = 321;
     } else if (cycle >= 321 && cycle <= 336) {
-      // tiles are fetched and loaded into shift registers
-      // I believe they're loaded into their shift registers
-      // so we will have a sprite shift register and a background shift register
+      // Tiles for next scanline are loaded into shift registers
+      // TODO: I think we won't need to worry about this since we can retrieve
+      // data immediately in our emulation, so dummy cycles for now
+      cycle = 337;
     } else if (cycle >= 337 && cycle <= 340) {
       // random fetches for no reason, so we can just increment cycles ig
+      scanline++;
+      cycle = 0;
     } else {
       cycle++;
     }
   } else if (scanline == 240) {
-    ;
+    if (cycle == 340) {
+      cycle = 0;
+      scanline++;
+    }
+    cycle++;
   } else if (scanline >= 241 && scanline <= 260) {
+    if (cycle == 340) {
+      cycle = 0;
+      if (scanline == 260) { 
+        scanline = 0;
+      }
+      else scanline++;
+    }
+    cycle++;
     status.vblank = 1;
     control.nmi = 1;
   }
-  cycle++;
-  total_cycles++;
+  /* std::cout << "CYCLE: " << cycle << "\n"; */
+  /* std::cout << "CYCLE BUFFER " << buffer_cycles << "\n"; */
+  /* std::cout << "SCANLINE " << scanline << "\n"; */
+  /* std::cout << "PPU ADDR " << std::hex << ppu_addr << "\n"; */
+  /* std::cout << "COARSE X " << std::hex << (ppu_addr & 0x001F) << "\n"; */
+  /* std::cout << "FINE Y " << (ppu_addr & 0x7000) << "\n"; */
 }
 
 /*
