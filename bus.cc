@@ -51,7 +51,8 @@ void Bus::reset() {
 void Bus::clock() {
   cpu.clock();
   for (int i = 0; i < 3; i++) {
-    ppu.clock();
+    // TODO: placement of the NMI, I'm not too sure about this, it seems very sus
+    if (ppu.clock()) cpu.nmi();
     total_clock_count++;
   }
 }

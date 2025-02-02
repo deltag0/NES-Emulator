@@ -306,8 +306,7 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
     cycles = 6;
     status = pull();
 
-    status &= ~FLAGS::B;
-    status &= ~FLAGS::U;
+    set_flag(FLAGS::I, 1);
 
     uint8_t low = pull();
     uint8_t high = pull();
@@ -1253,9 +1252,6 @@ void Cpu::nmi() {
   push(pc_high);
   push(pc_low);
 
-  set_flag(FLAGS::I, 1);
-  set_flag(FLAGS::B, 0);
-  set_flag(FLAGS::U, 1);
   push(status);
 
   uint8_t low = read(0xFFFA);
@@ -1287,6 +1283,8 @@ void Cpu::reset() {
 
   cycles = 7;
   total_cycles = 7;
+  low = read(0xFFFA);
+  high = read(0xFFFB);
 }
 
 void Cpu::push(uint8_t val) {

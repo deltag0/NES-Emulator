@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <winnt.h>
 
 Ppu::Ppu() : sprNameTable(2), sprPatternTable(2), frame_complete(false) {
   // color palette for the screen
@@ -114,16 +115,21 @@ void Ppu::cpu_write(uint16_t adr, uint8_t val) {
     if (latched == 0) {
       // set the high byte first
       ppu_addr = (ppu_addr & 0x00FF) | (val << 8);
-      latched = 0;
+      latched = 1;
     } else {
       // set the low byte second
       ppu_addr = (ppu_addr & 0xFF00) | val;
-      latched = 1;
+      latched = 0;
+      // the v register is set to be the same as the ppu_addr register
+      // because when not rendering they are essentially the same
+      // when rendering they will both differ from one another.
+      v = ppu_addr;
     }
     break;
   case 0x0007: // PPU data
-               //
     ppu_write(ppu_addr, val);
+    if (control.increment) ppu_addr += 32;
+    else ppu_addr += 1;
     break;
   }
 }
@@ -139,7 +145,7 @@ uint8_t Ppu::cpu_read(uint16_t adr, bool read) {
   case 0x0002: // Status register
     // setting the status vblank to 1 is temporary
     /* status.vblank = 1; */
-    data = status.reg; 
+    data = status.reg;
     latched = 0x00;
     status.vblank = 0x00;
     break;
@@ -300,10 +306,12 @@ void Ppu::connectCard(Cartridge *c) { card = c; }
 
 // cycles are the horizontal rendering
 // scanlines vertical (somewhat like rows)
-void Ppu::clock() {
-  if (status.vblank)
-    return;
-
+bool Ppu::clock() {
+  /* Returning 1 indicates that an NMI was triggered
+   * This function handles all the rendering done by the PPU
+   * It renders 8 pixels on a scanline all at once and uses buffer cycles to
+   * keep the timing fine.
+   */
   if (buffer_cycles > 0) {
     // increment fine_x
     buffer_cycles--;
@@ -314,22 +322,22 @@ void Ppu::clock() {
       // TODO: figure out if we need to switch nametables because
       // we might need to?
 
-      if ((ppu_addr & 0x001F) == 31) {
+      if ((v & 0x001F) == 31) {
 
         // reset coarse_x
-        ppu_addr &= ~0x001F;
+        v &= ~0x001F;
 
-        if (((ppu_addr & 0x7000) >> 12) == 7) {
+        if (((v & 0x7000) >> 12) == 7) {
           // reset fine_y
-          ppu_addr &= ~0x7000;
+          v &= ~0x7000;
 
-          if (((ppu_addr & 0x03E0) >> 5) == 29) {
+          if (((v & 0x03E0) >> 5) == 29) {
             // TODO: this is temporary since scanline needs to be reset to -1
             // also there's a problem with the scanlines since it only gets to
             // 210
             frame_complete = true;
             // reset coarse_y
-            ppu_addr &= ~0x03E0;
+            v &= ~0x03E0;
 
             for (int row = 0; row < 240; row++) {
               for (int col = 0; col < 256; col++) {
@@ -338,15 +346,15 @@ void Ppu::clock() {
             }
           } else {
             // increment coarse_y
-            ppu_addr += 0x0020;
+            v += 0x0020;
           }
         } else {
           // increment fine_y
-          ppu_addr += 0x1000;
+          v += 0x1000;
         }
       } else {
         // increment coarse_x
-        ppu_addr++;
+        v++;
       }
 
       // I render the entire tile row at once because it's simpler to emulate
@@ -354,7 +362,7 @@ void Ppu::clock() {
       // cycles and reset fine_x
     }
 
-    return;
+    return 0;
   }
 
   // this part of code was only temporary for getting a static screen
@@ -377,9 +385,9 @@ void Ppu::clock() {
       // render the thing
       // These are the addresses that must be read from the nametable or
       // attribute table to get the necessary info
-      tile_adr = 0x2000 | (ppu_addr & 0x0FFF);
-      attribute_adress = 0x23C0 | (ppu_addr & 0x0C00) |
-                         ((ppu_addr >> 4) & 0x38) | ((ppu_addr >> 2) & 0x07);
+      tile_adr = 0x2000 | (v & 0x0FFF);
+      attribute_adress =
+          0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07);
 
       // can be reduced to 4 reads like the "real" NES, but this is fine too
       // memmory accesses by the ppu to get information to render (8 cycles
@@ -387,12 +395,12 @@ void Ppu::clock() {
       palette_bits = ppu_read(attribute_adress);
 
       // variables to help determine the quandrant and to render the pixels
-      uint8_t coarse_x = ppu_addr & 0b0000000000011111;
-      uint8_t coarse_y = (ppu_addr & 0b0000001111100000) >> 5;
-      uint8_t fine_y = (ppu_addr & 0b0111000000000000) >> 12;
+      uint8_t coarse_x = v & 0b0000000000011111;
+      uint8_t coarse_y = (v & 0b0000001111100000) >> 5;
+      uint8_t fine_y = (v & 0b0111000000000000) >> 12;
       // TODO: make sure this is right, not sure...
-      pattern_table_low = ppu_read(ppu_read(tile_adr) * 16 + fine_y);
-      pattern_table_high = ppu_read(ppu_read(tile_adr) * 16 + 8 + fine_y);
+      pattern_table_low = ppu_read(0x1000 + ppu_read(tile_adr)* 16 + fine_y);
+      pattern_table_high = ppu_read(0x1000 + ppu_read(tile_adr) * 16 + 8 + fine_y);
 
       bool x_check = coarse_x % 4 || (coarse_x - 1) % 4;
       bool y_check = coarse_y % 4 || (coarse_y - 1) % 4;
@@ -410,13 +418,15 @@ void Ppu::clock() {
       }
 
       // rendering the pixels for the current scanline (fine_y)
-      for (int i = 0; i < 8; i++) {
-        uint8_t pixel =
-            (pattern_table_high & 0x01) + (pattern_table_low & 0x01);
-        pattern_table_high = pattern_table_high >> 1;
-        pattern_table_low = pattern_table_low >> 1;
-        sprScreen->SetPixel(coarse_x * 8 + (7 - i), coarse_y * 8 + fine_y,
-                            get_palette_color(pixel, palette_bits));
+      if (mask.bkg_rendering) {
+        for (int i = 0; i < 8; i++) {
+          uint8_t pixel =
+              (pattern_table_high & 0x01) + (pattern_table_low & 0x01);
+          pattern_table_high = pattern_table_high >> 1;
+          pattern_table_low = pattern_table_low >> 1;
+          sprScreen->SetPixel(coarse_x * 8 + (7 - i), coarse_y * 8 + fine_y,
+                              get_palette_color(pixel, palette_bits));
+        }
       }
 
       buffer_cycles += 8;
@@ -447,21 +457,27 @@ void Ppu::clock() {
   } else if (scanline >= 241 && scanline <= 260) {
     if (cycle == 340) {
       cycle = 0;
-      if (scanline == 260) { 
-        scanline = 0;
-      }
-      else scanline++;
-    }
-    cycle++;
+      scanline++;
+    } else
+      cycle++;
     status.vblank = 1;
-    control.nmi = 1;
+    if (status.vblank && control.nmi) {
+      // trigger NMI
+      return 1;
+    }
+  } else if (scanline == 261) {
+    // Clear vblank flag
+    status.vblank = 0;
+    scanline = 0;
+    frame_complete = false;
   }
   /* std::cout << "CYCLE: " << cycle << "\n"; */
   /* std::cout << "CYCLE BUFFER " << buffer_cycles << "\n"; */
   /* std::cout << "SCANLINE " << scanline << "\n"; */
-  /* std::cout << "PPU ADDR " << std::hex << ppu_addr << "\n"; */
-  /* std::cout << "COARSE X " << std::hex << (ppu_addr & 0x001F) << "\n"; */
-  /* std::cout << "FINE Y " << (ppu_addr & 0x7000) << "\n"; */
+  /* std::cout << "PPU ADDR " << std::hex << v << "\n"; */
+  /* std::cout << "COARSE X " << std::hex << (v & 0x001F) << "\n"; */
+  /* std::cout << "FINE Y " << (v & 0x7000) << "\n"; */
+  return 0;
 }
 
 /*
