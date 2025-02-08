@@ -2,6 +2,7 @@
 #include "ppu.h"
 #include "cartridge.h"
 #include <cstdint>
+#include <ios>
 #include <iostream>
 #include <memory>
 #include <winnt.h>
@@ -128,8 +129,10 @@ void Ppu::cpu_write(uint16_t adr, uint8_t val) {
     break;
   case 0x0007: // PPU data
     ppu_write(ppu_addr, val);
-    if (control.increment) ppu_addr += 32;
-    else ppu_addr += 1;
+    if (control.increment)
+      ppu_addr += 32;
+    else
+      ppu_addr += 1;
     break;
   }
 }
@@ -161,13 +164,17 @@ uint8_t Ppu::cpu_read(uint16_t adr, bool read) {
     // data register returns data stored
     // AFTER new read.
     data = ppu_data_buffer;
-    ppu_data_buffer = ppu_read(adr);
+    ppu_data_buffer = ppu_read(ppu_addr);
 
     // For address range of palettes, there is no delay
     // for reading data from ppu
     if (ppu_addr >= 0x3F00 && ppu_addr <= 0x3FFF) {
       data = ppu_data_buffer;
     }
+    if (control.increment)
+      ppu_addr += 32;
+    else
+      ppu_addr += 1;
     break;
   }
   return data;
@@ -195,7 +202,7 @@ void Ppu::ppu_write(uint16_t adr, uint8_t val) {
     // This address space is for the palettes
     // we AND the address because it has mirrors
     // on 0x3F
-    adr &= 0x00FF;
+    adr &= 0x001F;
     // access through mirrored indexes
     if (adr == 0x0010)
       adr = 0x0000;
@@ -232,7 +239,7 @@ uint8_t Ppu::ppu_read(uint16_t adr, bool read) {
     // This address space is for the palettes
     // we AND the address because it has mirrors
     // on 0x3F
-    adr &= 0x00FF;
+    adr &= 0x001F;
     // might be unnsecessary, but
     // not certain if the adr can access the background color
     // through mirrored indexes
@@ -245,7 +252,7 @@ uint8_t Ppu::ppu_read(uint16_t adr, bool read) {
     else if (adr == 0x001C)
       adr = 0x000C;
 
-    data = adr;
+    data = palettes[adr];
   }
   return data;
 }
@@ -398,30 +405,40 @@ bool Ppu::clock() {
       uint8_t coarse_x = v & 0b0000000000011111;
       uint8_t coarse_y = (v & 0b0000001111100000) >> 5;
       uint8_t fine_y = (v & 0b0111000000000000) >> 12;
-      // TODO: make sure this is right, not sure...
-      pattern_table_low = ppu_read(0x1000 + ppu_read(tile_adr)* 16 + fine_y);
-      pattern_table_high = ppu_read(0x1000 + ppu_read(tile_adr) * 16 + 8 + fine_y);
+      pattern_table_low = ppu_read((control.bkg_patter_adr * 0x1000) +
+                                   ppu_read(tile_adr) * 16 + fine_y);
+      pattern_table_high = ppu_read((control.bkg_patter_adr * 0x1000) +
+                                    ppu_read(tile_adr) * 16 + 8 + fine_y);
 
-      bool x_check = coarse_x % 4 || (coarse_x - 1) % 4;
-      bool y_check = coarse_y % 4 || (coarse_y - 1) % 4;
+      int x_check = coarse_x % 4;
+      int y_check = coarse_y % 4;
 
       // steps to determine wich palette bits we need from the attribute table
       // so it determines which quadrant we get the palette from
-      if (!x_check && !y_check) {
+      if ((x_check == 0 || x_check == 1) && (y_check == 0 || y_check == 1)) {
+        // Top left quadrant
         palette_bits &= 0b00000011;
-      } else if (y_check && !x_check) {
+      } else if ((x_check == 0 || x_check == 1) &&
+                 (y_check == 2 || y_check == 3)) {
+        // Bottom left quadrant
         palette_bits &= 0b00110000;
-      } else if (x_check && !y_check) {
+        palette_bits = palette_bits >> 4;
+      } else if ((y_check == 0 || y_check == 1) &&
+                 (x_check == 2 || x_check == 3)) {
+        // Top right quadrant
         palette_bits &= 0b00001100;
+        palette_bits = palette_bits >> 2;
       } else {
+        // Bottom right quadrant
         palette_bits &= 0b11000000;
+        palette_bits = palette_bits >> 6;
       }
 
       // rendering the pixels for the current scanline (fine_y)
       if (mask.bkg_rendering) {
         for (int i = 0; i < 8; i++) {
           uint8_t pixel =
-              (pattern_table_high & 0x01) + (pattern_table_low & 0x01);
+              ((pattern_table_high & 0x01) << 1) | (pattern_table_low & 0x01);
           pattern_table_high = pattern_table_high >> 1;
           pattern_table_low = pattern_table_low >> 1;
           sprScreen->SetPixel(coarse_x * 8 + (7 - i), coarse_y * 8 + fine_y,
