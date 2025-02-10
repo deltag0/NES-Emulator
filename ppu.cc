@@ -280,7 +280,7 @@ olc::Sprite &Ppu::getpatternTable(uint8_t i, uint8_t palette) {
         uint8_t msb = ppu_read(0x1000 * i + offset + tile_x + 8, true);
 
         for (int tile_y = 0; tile_y < 8; tile_y++) {
-          uint8_t pixel = (msb & 0x01) + (lsb & 0x01);
+          uint8_t pixel = ((msb & 0x01) << 1) || (lsb & 0x01);
 
           lsb = lsb >> 1;
           msb = msb >> 1;

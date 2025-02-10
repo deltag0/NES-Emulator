@@ -25,6 +25,7 @@ public:
 
   // if run_emulation is true, debugging mode is off
   bool run_emulation = false;
+  int step_size = 128;
   bool debug = false;
   float fResidualTime = 0.0f;
 
@@ -183,7 +184,7 @@ public:
         } while (nes.cpu.complete());
       }
       if (GetKey(olc::Key::J).bPressed) {
-        for (int i = 0; i < 128; i++) {
+        for (int i = 0; i < step_size; i++) {
           // clock the NES until we have completed an instruction
           do {
             nes.clock();
@@ -216,6 +217,12 @@ public:
         }
         std::cout << "DONE\n";
       }
+      if (GetKey(olc::Key::K).bPressed) {
+        std::cout << "Enter a new value to step by: ";
+        std::cin >> step_size;
+        std::cout << "\n";
+      }
+
     }
 
     if (GetKey(olc::Key::R).bPressed)
