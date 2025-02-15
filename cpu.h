@@ -194,6 +194,7 @@ struct Cpu {
     uint16_t adr_relative{0x0000};
 
     uint8_t clock_count{0x00};
+    bool oam{false};
 
 
     // Pointer to Bus it's a part of

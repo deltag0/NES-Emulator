@@ -4,6 +4,8 @@
 #include "cartridge.h"
 #include "cpu.h"
 #include "ppu.h"
+#include "dma.h"
+#include <cstdint>
 #include <fstream>
 #include <cmath>
 #include <memory>
@@ -19,10 +21,12 @@ public:
   // CPU reads and writes from the BUS
   void Cpu_write(uint16_t adr, uint8_t data);
   uint8_t Cpu_read(uint16_t adr, bool bReadOnly = false);
+  void oamdma(uint8_t adr);
 
   // Devices
   Cpu cpu;
   Ppu ppu;
+  Dma dma;
   uint8_t cpu_ram[MAX_MEMORY]{0x00};
   std::unique_ptr<Cartridge> card;
   // Interface

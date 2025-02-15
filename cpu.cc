@@ -219,7 +219,7 @@ void Cpu::clock() {
   // if we finished the previous instruction, execute new one
   // unlike real hardware, we finish the instruction in a single cycle
   // then wait out the cycles until they reach 0
-  if (cycles == 0) {
+  if (cycles == 0 && !oam) {
     opcode = read(PC);
 
     set_flag(FLAGS::U, 1);
@@ -231,6 +231,12 @@ void Cpu::clock() {
     cycles += additional_cycle;
     total_cycles += cycles;
     set_flag(FLAGS::U, 1);
+  }
+  else if (cycles == 0) {
+    // TODO: not exactly cycle accurate because it could have 514 cycles
+    // but for doing this it would have to be cycle accurate
+    cycles += 513;
+    oam = false;
   }
 
   clock_count++;

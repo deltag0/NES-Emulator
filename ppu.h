@@ -4,8 +4,21 @@
 #include "olcPixelGameEngine.h"
 #include <cstdint>
 #include <fstream>
+#include <map>
 #include <memory>
+#include <queue>
 #include <vector>
+
+
+struct Sprite {
+  uint8_t idx{0x00};
+  uint8_t sprite_y{0x00};
+  uint8_t sprite_low{0x00};
+  uint8_t sprite_high{0x00};
+  uint8_t palette{0x00};
+};
+
+
 class Ppu {
 public:
   Ppu();
@@ -82,10 +95,9 @@ public:
   // index pointing to the tile from the pattern table
   uint8_t pattern_table_low = 0x00;
   uint8_t pattern_table_high = 0x00;
-  // palette value where bit 0-1 are the palettes for bottom right
-  // the bits 2-3 are the paletters for bottom left
-  // 4-5 for top right and 6-7 for top left
-  // documentation is very unclear so TODO: test this and make sure this is right
+  // palette value where bit 0-1 are the palettes for top left
+  // the bits 2-3 are the paletters for top right
+  // 4-5 for bottom left and 6-7 for bottom right
   uint8_t palette_bits = 0x00;
 
   // registers are how the PPU and CPU communicate together
@@ -153,6 +165,27 @@ public:
     };
   } status;
 
+  uint8_t oam_addr;
+  uint8_t oam_data;
+
+  // Where most sprite information is stored
+  std::vector<uint8_t> oam;
+
+  // Sprites that are about to be loaded in the next scanline are stored in the secondary OAM
+  // Overflow flag in PPUSTATUS if something bad happens
+  // TODO: sprite 0 hits
+  // saves x positioning to easily render the sprite
+  using pair = std::pair<uint8_t, uint8_t>;
+  std::queue<pair> secondary_oam;
+  bool rendering_sprite{false};
+  int sprite_render_count = 0;
+  Sprite sprite;
+
+
+  void clear_secondary_oam() {
+    std::queue<pair> empty;
+    std::swap(secondary_oam, empty);
+  }
 
 
 

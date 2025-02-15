@@ -1,13 +1,15 @@
 
 #include "ppu.h"
 #include "cartridge.h"
+#include <algorithm>
 #include <cstdint>
 #include <ios>
 #include <iostream>
 #include <memory>
 #include <winnt.h>
 
-Ppu::Ppu() : sprNameTable(2), sprPatternTable(2), frame_complete(false) {
+Ppu::Ppu()
+    : sprNameTable(2), sprPatternTable(2), oam(256), frame_complete(false) {
   // color palette for the screen
   palScreen[0x00] = olc::Pixel(84, 84, 84);
   palScreen[0x01] = olc::Pixel(0, 30, 116);
@@ -89,6 +91,8 @@ Ppu::Ppu() : sprNameTable(2), sprPatternTable(2), frame_complete(false) {
 Ppu::~Ppu() {}
 
 // cpu writing to ppu
+// For both cpu_write and cpu_read, the address can
+// only actually be from 0x0000 to 0x0007
 void Ppu::cpu_write(uint16_t adr, uint8_t val) {
   switch (adr) {
   case 0x0000: // control
@@ -102,9 +106,13 @@ void Ppu::cpu_write(uint16_t adr, uint8_t val) {
     break;
   case 0x0002: // Status
     break;
-  case 0x0003: // OAM addr
+  case 0x0003: // OAM
+    oam_addr = val;
     break;
   case 0x0004: // OAM data
+    oam[oam_addr] = val;
+    // TODO: make sure this only gets incremented by 1 each time
+    oam_addr++;
     break;
   case 0x0005: // Scroll
     break;
@@ -155,6 +163,7 @@ uint8_t Ppu::cpu_read(uint16_t adr, bool read) {
   case 0x0003:
     break;
   case 0x0004:
+    data = oam[oam_addr];
     break;
   case 0x0005:
     break;
@@ -280,7 +289,7 @@ olc::Sprite &Ppu::getpatternTable(uint8_t i, uint8_t palette) {
         uint8_t msb = ppu_read(0x1000 * i + offset + tile_x + 8, true);
 
         for (int tile_y = 0; tile_y < 8; tile_y++) {
-          uint8_t pixel = ((msb & 0x01) << 1) || (lsb & 0x01);
+          uint8_t pixel = ((msb & 0x01) << 1) | (lsb & 0x01);
 
           lsb = lsb >> 1;
           msb = msb >> 1;
@@ -319,140 +328,176 @@ bool Ppu::clock() {
    * It renders 8 pixels on a scanline all at once and uses buffer cycles to
    * keep the timing fine.
    */
-  if (buffer_cycles > 0) {
-    // increment fine_x
-    buffer_cycles--;
-    fine_x++;
-
-    if (buffer_cycles == 0) {
-      fine_x = 0;
-      // TODO: figure out if we need to switch nametables because
-      // we might need to?
-
-      if ((v & 0x001F) == 31) {
-
-        // reset coarse_x
-        v &= ~0x001F;
-
-        if (((v & 0x7000) >> 12) == 7) {
-          // reset fine_y
-          v &= ~0x7000;
-
-          if (((v & 0x03E0) >> 5) == 29) {
-            // TODO: this is temporary since scanline needs to be reset to -1
-            // also there's a problem with the scanlines since it only gets to
-            // 210
-            frame_complete = true;
-            // reset coarse_y
-            v &= ~0x03E0;
-
-            for (int row = 0; row < 240; row++) {
-              for (int col = 0; col < 256; col++) {
-                sprScreen->SetPixel(col, row, 0x00);
-              }
-            }
-          } else {
-            // increment coarse_y
-            v += 0x0020;
-          }
-        } else {
-          // increment fine_y
-          v += 0x1000;
-        }
-      } else {
-        // increment coarse_x
-        v++;
-      }
-
-      // I render the entire tile row at once because it's simpler to emulate
-      // this way so we can just update the coarse_x when we run out of buffer
-      // cycles and reset fine_x
-    }
-
-    return 0;
-  }
-
-  // this part of code was only temporary for getting a static screen
-  /* sprScreen->SetPixel(cycle - 1, scanline, */
-  /*                     palScreen[(rand() % 2) ? 0x3F : 0x30]); */
-  /* if (cycle >= 341) { */
-  /*   cycle = 0; */
-  /*   scanline++; */
-  /*   if (scanline >= 261) { */
-  /*     scanline = -1; */
-  /*     frame_complete = true; */
-  /*   } */
-  /* } */
 
   if (scanline >= 0 && scanline <= 239) {
+    uint8_t coarse_x = v & 0b0000000000011111;
+    uint8_t coarse_y = (v & 0b0000001111100000) >> 5;
+    uint8_t fine_y = (v & 0b0111000000000000) >> 12;
+    uint8_t curr_render_y = coarse_y * 8 + fine_y;
 
     if (cycle >= 1 && cycle <= 256) {
-      // we need to actually render the things
-      // increment cycle clock by 2 after each fetching
-      // render the thing
-      // These are the addresses that must be read from the nametable or
-      // attribute table to get the necessary info
-      tile_adr = 0x2000 | (v & 0x0FFF);
-      attribute_adress =
-          0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07);
+      if ((cycle - 1) % 8 == 0) {
 
-      // can be reduced to 4 reads like the "real" NES, but this is fine too
-      // memmory accesses by the ppu to get information to render (8 cycles
-      // total)
-      palette_bits = ppu_read(attribute_adress);
+        // we need to actually render the things
+        // increment cycle clock by 2 after each fetching
+        // render the thing
+        // These are the addresses that must be read from the nametable or
+        // attribute table to get the necessary info
+        tile_adr = 0x2000 | (v & 0x0FFF);
+        attribute_adress =
+            0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07);
 
-      // variables to help determine the quandrant and to render the pixels
-      uint8_t coarse_x = v & 0b0000000000011111;
-      uint8_t coarse_y = (v & 0b0000001111100000) >> 5;
-      uint8_t fine_y = (v & 0b0111000000000000) >> 12;
-      pattern_table_low = ppu_read((control.bkg_patter_adr * 0x1000) +
-                                   ppu_read(tile_adr) * 16 + fine_y);
-      pattern_table_high = ppu_read((control.bkg_patter_adr * 0x1000) +
-                                    ppu_read(tile_adr) * 16 + 8 + fine_y);
+        // can be reduced to 4 reads like the "real" NES, but this is fine too
+        // memmory accesses by the ppu to get information to render (8 cycles
+        // total)
+        palette_bits = ppu_read(attribute_adress);
 
-      int x_check = coarse_x % 4;
-      int y_check = coarse_y % 4;
+        // variables to help determine the quandrant and to render the pixels
+        pattern_table_low = ppu_read((control.bkg_patter_adr * 0x1000) +
+                                     ppu_read(tile_adr) * 16 + fine_y);
+        pattern_table_high = ppu_read((control.bkg_patter_adr * 0x1000) +
+                                      ppu_read(tile_adr) * 16 + 8 + fine_y);
 
-      // steps to determine wich palette bits we need from the attribute table
-      // so it determines which quadrant we get the palette from
-      if ((x_check == 0 || x_check == 1) && (y_check == 0 || y_check == 1)) {
-        // Top left quadrant
-        palette_bits &= 0b00000011;
-      } else if ((x_check == 0 || x_check == 1) &&
-                 (y_check == 2 || y_check == 3)) {
-        // Bottom left quadrant
-        palette_bits &= 0b00110000;
-        palette_bits = palette_bits >> 4;
-      } else if ((y_check == 0 || y_check == 1) &&
-                 (x_check == 2 || x_check == 3)) {
-        // Top right quadrant
-        palette_bits &= 0b00001100;
-        palette_bits = palette_bits >> 2;
-      } else {
-        // Bottom right quadrant
-        palette_bits &= 0b11000000;
-        palette_bits = palette_bits >> 6;
+        int x_check = coarse_x % 4;
+        int y_check = coarse_y % 4;
+
+        // steps to determine wich palette bits we need from the attribute table
+        // so it determines which quadrant we get the palette from
+        if ((x_check == 0 || x_check == 1) && (y_check == 0 || y_check == 1)) {
+          // Top left quadrant
+          palette_bits &= 0b00000011;
+        } else if ((x_check == 0 || x_check == 1) &&
+                   (y_check == 2 || y_check == 3)) {
+          // Bottom left quadrant
+          palette_bits &= 0b00110000;
+          palette_bits = palette_bits >> 4;
+        } else if ((y_check == 0 || y_check == 1) &&
+                   (x_check == 2 || x_check == 3)) {
+          // Top right quadrant
+          palette_bits &= 0b00001100;
+          palette_bits = palette_bits >> 2;
+        } else {
+          // Bottom right quadrant
+          palette_bits &= 0b11000000;
+          palette_bits = palette_bits >> 6;
+        }
       }
+
+      uint8_t bkg_pixel = (((pattern_table_high & 0x80) >> 7) << 1) |
+                          ((pattern_table_low & 0x80) >> 7);
 
       // rendering the pixels for the current scanline (fine_y)
       if (mask.bkg_rendering) {
-        for (int i = 0; i < 8; i++) {
-          uint8_t pixel =
-              ((pattern_table_high & 0x01) << 1) | (pattern_table_low & 0x01);
-          pattern_table_high = pattern_table_high >> 1;
-          pattern_table_low = pattern_table_low >> 1;
-          sprScreen->SetPixel(coarse_x * 8 + (7 - i), coarse_y * 8 + fine_y,
-                              get_palette_color(pixel, palette_bits));
+        sprScreen->SetPixel(coarse_x * 8 + fine_x, curr_render_y,
+                            get_palette_color(bkg_pixel, palette_bits));
+      }
+
+      pattern_table_high <<= 1;
+      pattern_table_low <<= 1;
+
+      if (secondary_oam.size() > 0 &&
+          secondary_oam.front().first == coarse_x * 8 + fine_x) {
+        rendering_sprite = true;
+        sprite.idx = secondary_oam.front().second;
+        sprite.sprite_y = curr_render_y - oam[sprite.idx] - 1;
+        sprite.sprite_low =
+            ppu_read((control.spr_patter_adr * 0x1000) +
+                     oam[sprite.idx + 1] * 16 + sprite.sprite_y);
+        sprite.sprite_high =
+            ppu_read((control.spr_patter_adr * 0x1000) +
+                     oam[sprite.idx + 1] * 16 + sprite.sprite_y + 8);
+        sprite.palette = (oam[sprite.idx + 2] & 0x03) + 4;
+      }
+
+      if (rendering_sprite && mask.sprite_rendering) {
+        bool flip_horz = oam[sprite.idx + 2] & 0x40;
+        bool flip_vert = oam[sprite.idx + 2] & 0x80;
+        uint8_t pixel{0x00};
+        if (flip_horz) {
+          pixel =
+              ((sprite.sprite_high & 0x01) << 1) | (sprite.sprite_low & 0x01);
+          sprite.sprite_low >>= 1;
+          sprite.sprite_high >>= 1;
+        } else {
+          pixel = (((sprite.sprite_high & 0x80) >> 7) << 1) |
+                  ((sprite.sprite_low & 0x80) >> 7);
+          sprite.sprite_low <<= 1;
+          sprite.sprite_high <<= 1;
+        }
+        if (pixel != 0) {
+          sprScreen->SetPixel(coarse_x * 8 + fine_x, curr_render_y,
+                              get_palette_color(pixel, sprite.palette));
+        }
+        sprite_render_count++;
+      }
+
+      if (sprite_render_count == 8) {
+        sprite_render_count = 0;
+        secondary_oam.pop();
+        rendering_sprite = false;
+      }
+
+      if (cycle % 8 == 0) {
+        fine_x = 0;
+        // TODO: figure out if we need to switch nametables because
+        // we might need to?
+
+        if ((v & 0x001F) == 31) {
+
+          // reset coarse_x
+          v &= ~0x001F;
+
+          if (((v & 0x7000) >> 12) == 7) {
+            // reset fine_y
+            v &= ~0x7000;
+
+            if (((v & 0x03E0) >> 5) == 29) {
+              // TODO: this is temporary since scanline needs to be reset to
+              // -1 also there's a problem with the scanlines since it only
+              // gets to 210
+              frame_complete = true;
+              // reset coarse_y
+              v &= ~0x03E0;
+
+              /* for (int row = 0; row < 240; row++) { */
+              /*   for (int col = 0; col < 256; col++) { */
+              /*     sprScreen->SetPixel(col, row, 0x00); */
+              /*   } */
+              /* } */
+            } else {
+              // increment coarse_y
+              v += 0x0020;
+            }
+          } else {
+            // increment fine_y
+            v += 0x1000;
+          }
+        } else {
+          // increment coarse_x
+          v++;
         }
       }
 
-      buffer_cycles += 8;
-      cycle += 8;
-      total_cycles += 8;
+      /* buffer_cycles += 8; */
+      cycle++;
+      fine_x++;
+      total_cycles += 1;
     } else if (cycle >= 257 && cycle <= 320) {
-      // TODO: This is important for rendering the sprites, so for now I'll just
-      // simulate adding cycles
-      cycle = 321;
+      // TODO: should only be able to have 8 sprites in the secondary OAM
+      // Apparently sprite overflow doesn't seem to be that impportant, so not
+      // implemented
+      if (cycle == 257) {
+        clear_secondary_oam();
+      }
+      uint8_t sprite_idx = (cycle - 257) * 4;
+
+      if (0 <= curr_render_y - oam[sprite_idx] &&
+          curr_render_y - oam[sprite_idx] <= 7 && secondary_oam.size() < 8) {
+        secondary_oam.push({oam[sprite_idx + 3], (cycle - 257) * 4});
+      }
+
+      oam_addr = 0x00;
+      cycle++;
     } else if (cycle >= 321 && cycle <= 336) {
       // Tiles for next scanline are loaded into shift registers
       // TODO: I think we won't need to worry about this since we can retrieve
@@ -465,7 +510,7 @@ bool Ppu::clock() {
     } else {
       cycle++;
     }
-  } else if (scanline == 240) {
+  } else if (scanline == 240 || scanline == -1) {
     if (cycle == 340) {
       cycle = 0;
       scanline++;
@@ -479,7 +524,7 @@ bool Ppu::clock() {
       cycle++;
     status.vblank = 1;
     if (status.vblank && control.nmi) {
-      // trigger NMI
+      // triggers NMI
       return 1;
     }
   } else if (scanline == 261) {
@@ -494,6 +539,10 @@ bool Ppu::clock() {
   /* std::cout << "PPU ADDR " << std::hex << v << "\n"; */
   /* std::cout << "COARSE X " << std::hex << (v & 0x001F) << "\n"; */
   /* std::cout << "FINE Y " << (v & 0x7000) << "\n"; */
+  /* uint8_t coarse_y = (v & 0b0000001111100000) >> 5; */
+  /* uint8_t fine_y = (v & 0b0111000000000000) >> 12; */
+  /* std::cout << "SCANLINE: " << static_cast<uint16_t>(scanline) << " " */
+  /*           << static_cast<uint16_t>(coarse_y * 8 + fine_y) << "\n"; */
   return 0;
 }
 
