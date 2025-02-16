@@ -13,6 +13,7 @@
 struct Sprite {
   uint8_t idx{0x00};
   uint8_t sprite_y{0x00};
+  uint8_t sprite_x{0x00};
   uint8_t sprite_low{0x00};
   uint8_t sprite_high{0x00};
   uint8_t palette{0x00};

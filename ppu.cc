@@ -336,6 +336,21 @@ bool Ppu::clock() {
     uint8_t curr_render_y = coarse_y * 8 + fine_y;
 
     if (cycle >= 1 && cycle <= 256) {
+      // doing this in less cycles because I wanted to
+      // TODO: test this
+      if (cycle >= 65 && cycle <= 128) {
+        if (cycle == 65) {
+          clear_secondary_oam();
+        }
+        uint8_t sprite_idx = (cycle - 65) * 4;
+
+        if (0 <= curr_render_y - oam[sprite_idx] &&
+            curr_render_y - oam[sprite_idx] <= 7 && secondary_oam.size() < 8) {
+          secondary_oam.push({oam[sprite_idx + 3], (cycle - 65) * 4});
+        }
+
+        oam_addr = 0x00;
+      }
       if ((cycle - 1) % 8 == 0) {
 
         // we need to actually render the things
@@ -396,7 +411,7 @@ bool Ppu::clock() {
       pattern_table_low <<= 1;
 
       if (secondary_oam.size() > 0 &&
-          secondary_oam.front().first == coarse_x * 8 + fine_x) {
+          secondary_oam.front().first == coarse_x * 8 + fine_x - 1) {
         rendering_sprite = true;
         sprite.idx = secondary_oam.front().second;
         sprite.sprite_y = curr_render_y - oam[sprite.idx] - 1;
@@ -486,17 +501,19 @@ bool Ppu::clock() {
       // TODO: should only be able to have 8 sprites in the secondary OAM
       // Apparently sprite overflow doesn't seem to be that impportant, so not
       // implemented
-      if (cycle == 257) {
-        clear_secondary_oam();
-      }
-      uint8_t sprite_idx = (cycle - 257) * 4;
+      //
+      //FIXME: apparently this is done earlier, so might need to remove this code
+      /* if (cycle == 257) { */
+      /*   clear_secondary_oam(); */
+      /* } */
+      /* uint8_t sprite_idx = (cycle - 257) * 4; */
 
-      if (0 <= curr_render_y - oam[sprite_idx] &&
-          curr_render_y - oam[sprite_idx] <= 7 && secondary_oam.size() < 8) {
-        secondary_oam.push({oam[sprite_idx + 3], (cycle - 257) * 4});
-      }
+      /* if (0 <= curr_render_y - oam[sprite_idx] && */
+      /*     curr_render_y - oam[sprite_idx] <= 7 && secondary_oam.size() < 8) { */
+      /*   secondary_oam.push({oam[sprite_idx + 3], (cycle - 257) * 4}); */
+      /* } */
 
-      oam_addr = 0x00;
+      /* oam_addr = 0x00; */
       cycle++;
     } else if (cycle >= 321 && cycle <= 336) {
       // Tiles for next scanline are loaded into shift registers
