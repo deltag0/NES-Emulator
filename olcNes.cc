@@ -148,7 +148,7 @@ public:
         fResidualTime -= fElapsedTime;
       else {
         fResidualTime =
-            (1.0f / 30.0f) - fElapsedTime; // Substract ElapsedTime for accuracy
+            (1.0f / 60.0f) - fElapsedTime; // Substract ElapsedTime for accuracy
         do {
 
           nes.clock();

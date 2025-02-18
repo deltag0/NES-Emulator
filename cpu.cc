@@ -312,7 +312,8 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
     cycles = 6;
     status = pull();
 
-    set_flag(FLAGS::I, 1);
+    status &= ~FLAGS::B;
+    status &= ~FLAGS::U;
 
     uint8_t low = pull();
     uint8_t high = pull();
@@ -982,9 +983,10 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
   case Opcode::ROR_A: {
     cycles = 2;
 
+
     uint8_t temp = get_flag(FLAGS::C);
     set_flag(FLAGS::C,
-             accumulator << 7); // compiler gives warning, but code is correct
+             accumulator & 0x01); // compiler gives warning, but code is correct
     accumulator = accumulator >> 1;
     if (temp)
       accumulator |= 0x80;
@@ -1611,11 +1613,14 @@ uint8_t Cpu::DEC() {
 }
 
 uint8_t Cpu::INC() {
-  write(adr, fetch() + 1);
-  fetch();
+  uint16_t value = fetch();         // Fetch the value to increment
+  value += 1;                      // Increment the value
+  write(adr, value & 0x00FF);               // Write the incremented value back to memory
 
-  set_flag(FLAGS::Z, fetched == 0);
-  set_flag(FLAGS::N, fetched >> 7);
+  // Update flags based on the incremented value
+  set_flag(FLAGS::Z, (value & 0x00FF) == 0);  // Zero flag is set if the result is 0
+  set_flag(FLAGS::N, value & 0x0080);  // Negative flag is set based on the new bit 7
+
   return 0;
 }
 
@@ -1650,7 +1655,7 @@ uint8_t Cpu::ROR() {
 
 uint8_t Cpu::LSR() {
   fetch();
-  set_flag(C, fetched & 0x0001);
+  set_flag(C, fetched & 0x01);
   uint16_t temp = fetched >> 1;
   set_flag(Z, (temp & 0x00FF) == 0x0000);
   set_flag(N, temp & 0x0080);

@@ -9,6 +9,7 @@
 #include <queue>
 #include <vector>
 
+class Bus;
 
 struct Sprite {
   uint8_t idx{0x00};
@@ -24,6 +25,7 @@ class Ppu {
 public:
   Ppu();
   ~Ppu();
+
 
   // PPU will also be able to communicate with the CPU, so it can write and read
   // on the CPU soo we will need these functions
@@ -118,7 +120,7 @@ public:
   uint16_t ppu_addr = 0x0000;
   uint16_t v = 0x0000; // this is an internal register that is used for rendering (more on it in ppu_write 0x2006)
   uint16_t temp_ppu_addr = 0x0000;
-  uint8_t fine_x = 0x00;  // fine-x scrolling register (unsure about its usages)
+  uint16_t fine_x = 0x00;  // fine-x scrolling register (unsure about its usages)
   // this register also fully changes based off a fetch
   uint8_t ppu_data_buffer = 0x00;
   // Since unions store everything on a single memory address
@@ -177,25 +179,31 @@ public:
   // TODO: sprite 0 hits
   // saves x positioning to easily render the sprite
   using pair = std::pair<uint8_t, uint8_t>;
-  std::queue<pair> secondary_oam;
+  std::queue<uint8_t> secondary_oam;
+  int curr_sprite{0};
+
+  // Hold a pair of <low, high> addresses for tiles
+  std::queue<Sprite> sprite_shift;
   bool rendering_sprite{false};
   int sprite_render_count = 0;
-  Sprite sprite;
+  Sprite render_sprite;
 
 
   void clear_secondary_oam() {
-    std::queue<pair> empty;
-    std::swap(secondary_oam, empty);
+    std::queue<uint8_t> q;
+    std::swap(q, secondary_oam);
   }
 
-
-
-
+  void clear_sprite_shift() {
+    std::queue<Sprite> q;
+    std::swap(q, sprite_shift);
+  }
 
 public:
   // public interface
   void connectCard(Cartridge *c);
   bool clock();
+  void update_render();
 
   
   // debugging functions
