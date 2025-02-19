@@ -98,8 +98,6 @@ void Ppu::cpu_write(uint16_t adr, uint8_t val) {
   switch (adr) {
   case 0x0000: // control
     control.reg = val;
-    // TODO: in the debugger this flag gets activated when the val is 0x10
-    // not sure why that's the case...
     status.unused5 = 1;
     break;
   case 0x0001: // mask
@@ -112,16 +110,16 @@ void Ppu::cpu_write(uint16_t adr, uint8_t val) {
     break;
   case 0x0004: // OAM data
     oam[oam_addr] = val;
-    // TODO: make sure this only gets incremented by 1 each time
-    oam_addr++;
+
+    if (oam_addr == 255) {
+      oam_addr = 0x00;
+    } else {
+      oam_addr++;
+    }
     break;
   case 0x0005: // Scroll
     break;
   case 0x0006: // PPU addr
-               // For the addr register of the ppu,
-               // the ppu will read the low and high byte one at a time
-               // first it reads the low byte then it reads the high byte
-               // and it stores it into the ppu addr
     if (latched == 0) {
       // set the high byte first
       ppu_addr = (ppu_addr & 0x00FF) | (val << 8);
@@ -155,8 +153,6 @@ uint8_t Ppu::cpu_read(uint16_t adr, bool read) {
   case 0x0001:
     break;
   case 0x0002: // Status register
-    // setting the status vblank to 1 is temporary
-    /* status.vblank = 1; */
     data = status.reg;
     latched = 0x00;
     status.vblank = 0x00;
@@ -171,20 +167,16 @@ uint8_t Ppu::cpu_read(uint16_t adr, bool read) {
   case 0x0006:
     break;
   case 0x0007:
-    // data register returns data stored
-    // AFTER new read.
-    data = ppu_data_buffer;
-    ppu_data_buffer = ppu_read(ppu_addr);
-
-    // For address range of palettes, there is no delay
-    // for reading data from ppu
     if (ppu_addr >= 0x3F00 && ppu_addr <= 0x3FFF) {
+      data = ppu_read(ppu_addr);
+      ppu_data_buffer = ppu_read(ppu_addr - 0x1000);
+    } else {
+      // Normal VRAM read with delay
       data = ppu_data_buffer;
+      ppu_data_buffer = ppu_read(ppu_addr);
     }
-    if (control.increment)
-      ppu_addr += 32;
-    else
-      ppu_addr += 1;
+    // Increment ppu_addr based on the control flag.
+    ppu_addr += (control.increment ? 32 : 1);
     break;
   }
   return data;
@@ -377,13 +369,12 @@ bool Ppu::clock() {
       if (cycle >= 65 && cycle <= 128) {
         if (cycle == 65) {
           clear_secondary_oam();
-          curr_sprite = 0;
         }
 
         uint8_t sprite_idx = (cycle - 65) * 4;
 
-        if (-1 <= curr_render_y - oam[sprite_idx] &&
-            curr_render_y - oam[sprite_idx] <= 6) {
+        if (0 <= curr_render_y - oam[sprite_idx] &&
+            curr_render_y - oam[sprite_idx] <= 7) {
           secondary_oam.push(sprite_idx);
         }
       }
@@ -438,10 +429,10 @@ bool Ppu::clock() {
       uint8_t bkg_pixel = (((pattern_table_high & 0x80) >> 7) << 1) |
                           ((pattern_table_low & 0x80) >> 7);
 
-      if (sprite_shift.size() > 0 &&
+      while (sprite_shift.size() > 0 &&
           sprite_shift.front().sprite_x == coarse_x * 8 + fine_x) {
-        render_sprite = sprite_shift.front(); 
-        rendering_sprite = true;
+        render_sprites.emplace_back(sprite_shift.front());
+        sprite_shift.pop();
       }
 
       // rendering the pixels for the current scanline (fine_y)
@@ -453,13 +444,18 @@ bool Ppu::clock() {
       pattern_table_high <<= 1;
       pattern_table_low <<= 1;
 
+      if (render_sprites.size() > 0 && mask.sprite_rendering) {
+        // TODO: add background sprite render priority
+        Sprite &render_sprite = render_sprites.front();
+        for (auto c_sprite: render_sprites) {
+          render_sprite = c_sprite.idx < render_sprite.idx ? c_sprite : render_sprite;
+        }
 
-      if (rendering_sprite && mask.sprite_rendering) {
         bool flip_horz = oam[render_sprite.idx + 2] & 0x40;
         uint8_t pixel{0x00};
         if (flip_horz) {
-          pixel =
-              ((render_sprite.sprite_high & 0x01) << 1) | (render_sprite.sprite_low & 0x01);
+          pixel = ((render_sprite.sprite_high & 0x01) << 1) |
+                  (render_sprite.sprite_low & 0x01);
           render_sprite.sprite_low >>= 1;
           render_sprite.sprite_high >>= 1;
         } else {
@@ -472,13 +468,10 @@ bool Ppu::clock() {
           sprScreen->SetPixel(coarse_x * 8 + fine_x, curr_render_y,
                               get_palette_color(pixel, render_sprite.palette));
         }
-        sprite_render_count++;
       }
 
-      if (sprite_render_count == 8) {
-        sprite_render_count = 0;
-        sprite_shift.pop();
-        rendering_sprite = false;
+      while (render_sprites.size() > 0 && coarse_x * 8 + fine_x >= render_sprites.front().sprite_x + 7) {
+        render_sprites.pop_front();
       }
 
       fine_x++;
@@ -489,8 +482,11 @@ bool Ppu::clock() {
       // TODO: should only be able to have 8 sprites in the secondary OAM
       // Apparently sprite overflow doesn't seem to be that impportant, so not
       // implemented
-      if (cycle == 257)
+      if (cycle == 257) {
         clear_sprite_shift();
+        sort_secondary_oam();
+        render_sprites.clear();
+      }
 
       if (secondary_oam.size() > 0) {
         uint8_t sprite_addr = secondary_oam.front();
@@ -498,7 +494,7 @@ bool Ppu::clock() {
 
         sprite.idx = sprite_addr;
         bool flip_vert = oam[sprite.idx + 2] & 0x80;
-        sprite.sprite_y = curr_render_y - oam[sprite.idx];
+        sprite.sprite_y = curr_render_y - oam[sprite.idx] - 1;
         sprite.sprite_x = oam[sprite.idx + 3];
 
         if (flip_vert) {
@@ -546,7 +542,7 @@ bool Ppu::clock() {
       cycle++;
       status.vblank = 1;
       if (status.vblank && control.nmi) {
-        return_val = 1;
+        return 1;
       }
     } else
       cycle++;
@@ -556,8 +552,12 @@ bool Ppu::clock() {
     if (cycle == 340) {
       scanline = -1;
       cycle = 0;
+      v = 0;
+      fine_x = 0;
+    } else if (cycle == 1) {
+      status.reg = 0x00;
+      cycle++;
     } else {
-      status.vblank = 0;
       frame_complete = false;
       cycle++;
     }

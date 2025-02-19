@@ -7,6 +7,7 @@
 #include <map>
 #include <memory>
 #include <queue>
+#include <unordered_set>
 #include <vector>
 
 class Bus;
@@ -180,13 +181,30 @@ public:
   // saves x positioning to easily render the sprite
   using pair = std::pair<uint8_t, uint8_t>;
   std::queue<uint8_t> secondary_oam;
-  int curr_sprite{0};
 
   // Hold a pair of <low, high> addresses for tiles
   std::queue<Sprite> sprite_shift;
-  bool rendering_sprite{false};
-  int sprite_render_count = 0;
-  Sprite render_sprite;
+  // helper map to find priority of rendering sprites
+  // bool indicating if the PPU is currently rendering a sprite
+  // int indicating how many pixels (in horz direction) of the sprite have been rendered
+  // current sprite being rendered
+  std::deque<Sprite> render_sprites;
+
+
+  void sort_secondary_oam() {
+    std::vector<uint8_t> temp(secondary_oam.size());
+    for (size_t i = 0; i < temp.size(); i++) {
+      temp[i] = secondary_oam.front();
+      secondary_oam.pop();
+    }
+    std::vector<uint8_t> &r = oam;
+    std::sort(temp.begin(), temp.end(), [&r] (const auto &a, const auto &b) {
+        return r[a + 3] < r[b + 3];
+        });
+    for (size_t i = 0; i < temp.size(); i++) {
+      secondary_oam.push(temp[i]);
+    }
+  }
 
 
   void clear_secondary_oam() {

@@ -129,10 +129,6 @@ public:
       // ResidualTime is reset at each frame, and
       // if ResidualTime > 0, we still need time until
       // displaying the next frame
-      if (nes.cpu.PC == 0xC28F) {
-        run_emulation = false;
-        return true;
-      }
       if (debug) {
         do {
           nes.clock();

@@ -30,6 +30,14 @@ Cartridge::Cartridge(const std::string &file) {
       header.tv_system2 >> header.unused[0] >> header.unused[1] >>
       header.unused[2] >> header.unused[3] >> header.unused[4];
 
+  if (header.name[0] == 'N' && header.name[1] == 'E' && header.name[2] == 'S' &&
+      header.name[3] == 0x1A) {
+    ;
+  }
+  else {
+    throw std::runtime_error("File format is not ines\n");
+  }
+
   if (header.mapper1 & 0x04)
     ifs.seekg(512, std::ios::cur);
 
@@ -37,7 +45,6 @@ Cartridge::Cartridge(const std::string &file) {
 
   // TEMP ADDITION
   // NOTE: the hardcoded elements are all temporary
-  // nMapperID = 0;
   uint8_t file_type = 1;
   // header.chr_rom_chunks = 2;
 
@@ -52,13 +59,12 @@ Cartridge::Cartridge(const std::string &file) {
     nCHRBanks = header.chr_rom_chunks;
     vPRGMemory.resize(nPRGBanks * PRG_SIZE);
     vCHRMemory.resize(nCHRBanks * CHR_SIZE);
-    ifs.read((char*)vPRGMemory.data(), vPRGMemory.size());
-    ifs.read((char*)vCHRMemory.data(), vCHRMemory.size());
+    ifs.read((char *)vPRGMemory.data(), vPRGMemory.size());
+    ifs.read((char *)vCHRMemory.data(), vCHRMemory.size());
   }
   if (file_type == 2) {
     // TODO:
   }
-  
   switch (nMapperID) {
   case 0:
     mapper = std::move(
@@ -77,7 +83,8 @@ Cartridge::Cartridge(const std::string &file) {
 // cpu_read will read from the cartridge program memory using the mapper
 bool Cartridge::cpu_read(uint16_t adr, uint8_t &data) {
   uint16_t mapped_adr{0};
-  if (mapper->cpu_read_mapper(adr, mapped_adr)) {
+  // TODO: make sure the sizes check in cpu_read and ppu_read make sense
+  if (vPRGMemory.size() > 0 && mapper->cpu_read_mapper(adr, mapped_adr)) {
     data = vPRGMemory[mapped_adr];
     return true;
   }
@@ -98,7 +105,7 @@ bool Cartridge::cpu_write(uint16_t adr, uint8_t data) {
 // ppu_read will read from the cartridge character memory using the mapper
 bool Cartridge::ppu_read(uint16_t adr, uint8_t &data) {
   uint32_t mapped_adr{0};
-  if (mapper->ppu_read_mapper(adr, mapped_adr)) {
+  if (vCHRMemory.size() > 0 && mapper->ppu_read_mapper(adr, mapped_adr)) {
     data = vCHRMemory[mapped_adr];
     return 1;
   }
