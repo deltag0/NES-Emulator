@@ -135,24 +135,24 @@ void Ppu::cpu_write(uint16_t adr, uint8_t val) {
   case 0x0006: // PPU addr
     if (latched == 0) {
       // set the high byte first
-      ppu_addr = (ppu_addr & 0x00FF) | (val << 8);
+      t.reg = (t.reg & 0x00FF) | (val << 8);
       latched = 1;
     } else {
       // set the low byte second
-      ppu_addr = (ppu_addr & 0xFF00) | val;
+      t.reg = (t.reg & 0xFF00) | val;
       latched = 0;
       // the v register is set to be the same as the ppu_addr register
       // because when not rendering they are essentially the same
       // when rendering they will both differ from one another.
-      v = ppu_addr;
+      v = t.reg;
     }
     break;
   case 0x0007: // PPU data
-    ppu_write(ppu_addr, val);
+    ppu_write(v, val);
     if (control.increment)
-      ppu_addr += 32;
+      v += 32;
     else
-      ppu_addr += 1;
+      v += 1;
     break;
   }
 }
@@ -180,16 +180,16 @@ uint8_t Ppu::cpu_read(uint16_t adr, bool read) {
   case 0x0006:
     break;
   case 0x0007:
-    if (ppu_addr >= 0x3F00 && ppu_addr <= 0x3FFF) {
-      data = ppu_read(ppu_addr);
-      ppu_data_buffer = ppu_read(ppu_addr - 0x1000);
+    if (v >= 0x3F00 && v <= 0x3FFF) {
+      data = ppu_read(v);
+      ppu_data_buffer = ppu_read(v - 0x1000);
     } else {
       // Normal VRAM read with delay
       data = ppu_data_buffer;
-      ppu_data_buffer = ppu_read(ppu_addr);
+      ppu_data_buffer = ppu_read(v);
     }
     // Increment ppu_addr based on the control flag.
-    ppu_addr += (control.increment ? 32 : 1);
+    v += (control.increment ? 32 : 1);
     break;
   }
   return data;
@@ -453,7 +453,6 @@ bool Ppu::clock() {
       pattern_table_low <<= 1;
 
       if (render_sprites.size() > 0 && mask.sprite_rendering) {
-        // TODO: add background sprite render priority
         Sprite &render_sprite = render_sprites.front();
         for (auto c_sprite: render_sprites) {
           render_sprite = c_sprite.idx < render_sprite.idx ? c_sprite : render_sprite;
@@ -487,7 +486,9 @@ bool Ppu::clock() {
       }
 
       fine_x++;
-      update_render();
+      if (mask.bkg_rendering || mask.sprite_rendering) {
+        update_render();
+      }
       cycle++;
       total_cycles += 1;
     } else if (cycle >= 257 && cycle <= 320) {
@@ -506,7 +507,7 @@ bool Ppu::clock() {
 
         sprite.idx = sprite_addr;
         bool flip_vert = oam[sprite.idx + 2] & 0x80;
-        sprite.sprite_y = curr_render_y - oam[sprite.idx] - 1;
+        sprite.sprite_y = curr_render_y - oam[sprite.idx]- 1;
         sprite.sprite_x = oam[sprite.idx + 3];
 
         if (flip_vert) {
@@ -564,8 +565,10 @@ bool Ppu::clock() {
     if (cycle == 340) {
       scanline = -1;
       cycle = 0;
-      v = 0;
-      fine_x = 0;
+      if (mask.sprite_rendering || mask.bkg_rendering) { 
+        v &= 0x0C00;
+        fine_x = 0;
+      }
     } else if (cycle == 1) {
       status.reg = 0x00;
       cycle++;

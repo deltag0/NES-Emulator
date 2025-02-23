@@ -118,7 +118,6 @@ public:
   uint8_t latched = 0x00;
   // These 2 registries can simply be variables because they change based
   // off the latched variable and they change fully on each fetch 
-  uint16_t ppu_addr = 0x0000;
   uint16_t v = 0x0000; // this is an internal register that is used for rendering (more on it in ppu_write 0x2006)
   uint16_t fine_x = 0x00;  // fine-x scrolling register
   // this register also fully changes based off a fetch
