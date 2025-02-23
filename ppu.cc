@@ -566,13 +566,27 @@ bool Ppu::clock() {
       scanline = -1;
       cycle = 0;
     } else if (cycle == 1) {
-      if (mask.sprite_rendering || mask.bkg_rendering) {
-        v = t.reg;
-        fine_x = 0;
-      }
       status.reg = 0x00;
       cycle++;
-    } else {
+    }
+    else if (cycle == 257) {
+      // update coarse_x
+      if (mask.bkg_rendering || mask.sprite_rendering) {
+        v &= (0xFFE0 | t.coarse_x);
+        fine_x = 0;
+      }
+      cycle++;
+    }
+    else if (cycle >= 280 || cycle <= 304) {
+      if (mask.bkg_rendering || mask.sprite_rendering) {
+        // update coarse y
+        v &= (0xFC1F | (static_cast<uint16_t>(t.coarse_y) << 5));
+        // update fine y
+        v &= (0x8FFF | (static_cast<uint16_t>(t.fine_y) << 10));
+      }
+      cycle++;
+    }
+    else {
       frame_complete = false;
       cycle++;
     }
