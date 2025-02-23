@@ -565,11 +565,11 @@ bool Ppu::clock() {
     if (cycle == 340) {
       scanline = -1;
       cycle = 0;
-      if (mask.sprite_rendering || mask.bkg_rendering) { 
-        v &= 0x0C00;
+    } else if (cycle == 1) {
+      if (mask.sprite_rendering || mask.bkg_rendering) {
+        v = t.reg;
         fine_x = 0;
       }
-    } else if (cycle == 1) {
       status.reg = 0x00;
       cycle++;
     } else {
