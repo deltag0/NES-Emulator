@@ -99,6 +99,8 @@ void Ppu::cpu_write(uint16_t adr, uint8_t val) {
   case 0x0000: // control
     control.reg = val;
     status.unused5 = 1;
+    t.nametable_high = control.name_table_high;
+    t.nametable_low = control.name_table_low;
     break;
   case 0x0001: // mask
     mask.reg = val;
@@ -118,6 +120,17 @@ void Ppu::cpu_write(uint16_t adr, uint8_t val) {
     }
     break;
   case 0x0005: // Scroll
+    // set coarse x and coarse y
+    if (latched == 0) {
+      t.coarse_x = val / 8;
+      fine_x = val % 8;
+      latched = 1;
+    }
+    else {
+      t.coarse_y = val / 8;
+      t.fine_y = val % 8;
+      latched = 0;
+    }
     break;
   case 0x0006: // PPU addr
     if (latched == 0) {
@@ -194,12 +207,9 @@ void Ppu::ppu_write(uint16_t adr, uint8_t val) {
     // background or sprite
     npatterns[(adr & 0x1000) >> 12][adr & 0x0FFF] = val;
   } else if (adr >= 0x2000 && adr <= 0x2FFF) {
-    int name_table_idx = 0;
-    if (adr > 0x2400) {
-      name_table_idx = 1;
-    }
-    ntables[name_table_idx][(adr & 0x23FF) - 0x2000] = val;
+    uint8_t name_table_idx = (v & 0x0C00) >> 10;
 
+    ntables[name_table_idx][(adr & 0x23FF) - 0x2000] = val;
   } else if (adr >= 0x3F00 && adr <= 0x3FFF) {
     // This address space is for the palettes
     // we AND the address because it has mirrors
@@ -232,10 +242,8 @@ uint8_t Ppu::ppu_read(uint16_t adr, bool read) {
     // background or sprite
     data = npatterns[(adr & 0x1000) >> 12][adr & 0x0FFF];
   } else if (adr >= 0x2000 && adr <= 0x2FFF) {
-    int name_table_idx = 0;
-    if (adr > 0x2400) {
-      name_table_idx = 1;
-    }
+    uint8_t name_table_idx = (v & 0x0C00) >> 10;
+
     data = ntables[name_table_idx][(adr & 0x23FF) - 0x2000];
   } else if (adr >= 0x3F00 && adr <= 0x3FFF) {
     // This address space is for the palettes
@@ -374,7 +382,7 @@ bool Ppu::clock() {
         uint8_t sprite_idx = (cycle - 65) * 4;
 
         if (0 <= curr_render_y - oam[sprite_idx] &&
-            curr_render_y - oam[sprite_idx] <= 7) {
+            curr_render_y - oam[sprite_idx] <= 7 && secondary_oam.size() < 8) {
           secondary_oam.push(sprite_idx);
         }
       }
@@ -451,19 +459,23 @@ bool Ppu::clock() {
           render_sprite = c_sprite.idx < render_sprite.idx ? c_sprite : render_sprite;
         }
 
+        for (auto &c_sprite: render_sprites) {
+          if (&c_sprite != &render_sprite) {
+            move_sprite_pixels(c_sprite);
+          }
+        }
+
         bool flip_horz = oam[render_sprite.idx + 2] & 0x40;
         uint8_t pixel{0x00};
         if (flip_horz) {
           pixel = ((render_sprite.sprite_high & 0x01) << 1) |
                   (render_sprite.sprite_low & 0x01);
-          render_sprite.sprite_low >>= 1;
-          render_sprite.sprite_high >>= 1;
         } else {
           pixel = (((render_sprite.sprite_high & 0x80) >> 7) << 1) |
                   ((render_sprite.sprite_low & 0x80) >> 7);
-          render_sprite.sprite_low <<= 1;
-          render_sprite.sprite_high <<= 1;
         }
+        move_sprite_pixels(render_sprite);
+
         if (pixel != 0) {
           sprScreen->SetPixel(coarse_x * 8 + fine_x, curr_render_y,
                               get_palette_color(pixel, render_sprite.palette));
