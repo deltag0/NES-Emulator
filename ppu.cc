@@ -136,6 +136,7 @@ void Ppu::cpu_write(uint16_t adr, uint8_t val) {
     if (latched == 0) {
       // set the high byte first
       t.reg = (t.reg & 0x00FF) | (val << 8);
+      t.reg &= 0xBFFF; 
       latched = 1;
     } else {
       // set the low byte second
@@ -499,6 +500,12 @@ bool Ppu::clock() {
         clear_sprite_shift();
         sort_secondary_oam();
         render_sprites.clear();
+        // update coarse_x
+        if (mask.bkg_rendering || mask.sprite_rendering) {
+          v &= (0xFFE0);
+          v |= t.coarse_x;
+          fine_x = 0;
+        }
       }
 
       if (secondary_oam.size() > 0) {
@@ -540,7 +547,7 @@ bool Ppu::clock() {
       cycle++;
     }
 
-  } else if (scanline == 240 || scanline == -1) {
+  } else if (scanline == 240) {
     if (cycle == 340) {
       cycle = 0;
       scanline++;
@@ -560,29 +567,37 @@ bool Ppu::clock() {
     } else
       cycle++;
 
-  } else if (scanline == 261) {
+  } else if (scanline == 261 || scanline == -1) {
     // Clear vblank flag
-    if (cycle == 340) {
+    if (cycle == 340 && scanline == 261) {
       scanline = -1;
       cycle = 0;
-    } else if (cycle == 1) {
+    } 
+    else if (cycle == 340 && scanline == -1) {
+      scanline++;
+      cycle = 0;
+    }
+    else if (cycle == 1) {
       status.reg = 0x00;
       cycle++;
     }
     else if (cycle == 257) {
       // update coarse_x
       if (mask.bkg_rendering || mask.sprite_rendering) {
-        v &= (0xFFE0 | t.coarse_x);
-        fine_x = 0;
+        v &= (0xFBE0);
+        v |= t.coarse_x;
+        v |= t.nametable_low << 10;
       }
       cycle++;
     }
-    else if (cycle >= 280 || cycle <= 304) {
+    else if (cycle >= 280 && cycle <= 304) {
       if (mask.bkg_rendering || mask.sprite_rendering) {
         // update coarse y
-        v &= (0xFC1F | (static_cast<uint16_t>(t.coarse_y) << 5));
+        v = (v & 0xFC1F) | (t.coarse_y << 5);
         // update fine y
-        v &= (0x8FFF | (static_cast<uint16_t>(t.fine_y) << 10));
+        v = (v & 0x8FFF) | (t.fine_y << 12);
+        v &= 0xF7FF;
+        v |= t.nametable_high << 11;
       }
       cycle++;
     }

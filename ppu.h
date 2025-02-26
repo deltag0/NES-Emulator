@@ -21,12 +21,10 @@ struct Sprite {
   uint8_t palette{0x00};
 };
 
-
 class Ppu {
 public:
   Ppu();
   ~Ppu();
-
 
   // PPU will also be able to communicate with the CPU, so it can write and read
   // on the CPU soo we will need these functions
@@ -47,12 +45,12 @@ private:
   uint8_t ntables[2][1024]; // vram memory for the nametables 0x2000 to 0x2FFF
   // even though there are 64 color palettes,
   // the palette color only stores an index to which
-  // index color we will point to. Size of 32 since 
+  // index color we will point to. Size of 32 since
   // that's the size of 0x3f00 to 0x3f1f
   uint8_t palettes[32];
   // the size of the pattern
   // memory must be 4096 because
-  // the tables are 16 x 16 and 
+  // the tables are 16 x 16 and
   // the tiles are composed of 2 8 byte
   // planes for the low and the high bytes
   uint8_t npatterns[2][4096];
@@ -69,21 +67,21 @@ private:
   // pattern table is divided into 2 parts of memory
   // first from 0000-0FFFF and second from 1000-1FFF
   // both patterns have 256 tiles (16x16)
-  // EACH tile is 8x8 (kind of like a grid)  
+  // EACH tile is 8x8 (kind of like a grid)
   // 01000001
   // 11000010
- //  01000100
+  //  01000100
   // 01001000
   // 00010000
   // 00100000
-  // 01000000 
+  // 01000000
   // 10000000
-  // the 8x8 grid is seperated into the low and the high bit 
+  // the 8x8 grid is seperated into the low and the high bit
   // So the table above could be the low or the high bit thable for a tile
   // and each row is stored as a byte
-  // so the first row could be stored as 0x41 
+  // so the first row could be stored as 0x41
   // makes it easy to figure out what is what
-   std::vector<std::unique_ptr<olc::Sprite>> sprPatternTable;
+  std::vector<std::unique_ptr<olc::Sprite>> sprPatternTable;
 
   // for later
   // TODO: remove this, only for debugging (the public thing btw)
@@ -92,9 +90,11 @@ public:
   int16_t cycle = 0;
   int buffer_cycles = 0;
   int total_cycles = 0;
-  // tile_adress is the adress needing to be read from the nametable to get the index pointing to the tile
+  // tile_adress is the adress needing to be read from the nametable to get the
+  // index pointing to the tile
   uint16_t tile_adr = 0x0000;
-  // attribute_adress is the adress needing to be read from the attribute table to get the palette of a tile
+  // attribute_adress is the adress needing to be read from the attribute table
+  // to get the palette of a tile
   uint16_t attribute_adress = 0x0000;
   // index pointing to the tile from the pattern table
   uint8_t pattern_table_low = 0x00;
@@ -108,7 +108,7 @@ public:
   // Registers are from 0x2000 to 0x2007
   // 0x2000  ----    -----  ----  -----  ----- ----  0x2007
   // control mask    status             scroll  addr  data
-  // 
+  //
   // CONTROL determines some things about how to render the game
   // Notably notifies us of VBlank which is when NMI must be switched on
   //
@@ -117,9 +117,10 @@ public:
   // internal register of the PPU used for ppu_addr and ppu_status
   uint8_t latched = 0x00;
   // These 2 registries can simply be variables because they change based
-  // off the latched variable and they change fully on each fetch 
-  uint16_t v = 0x0000; // this is an internal register that is used for rendering (more on it in ppu_write 0x2006)
-  uint16_t fine_x = 0x00;  // fine-x scrolling register
+  // off the latched variable and they change fully on each fetch
+  uint16_t v = 0x0000;    // this is an internal register that is used for
+                          // rendering (more on it in ppu_write 0x2006)
+  uint16_t fine_x = 0x00; // fine-x scrolling register
   // this register also fully changes based off a fetch
   uint8_t ppu_data_buffer = 0x00;
   // Since unions store everything on a single memory address
@@ -130,15 +131,14 @@ public:
   union T {
     uint16_t reg;
     struct {
-      uint8_t coarse_x: 5;
-      uint8_t coarse_y: 5;
-      uint8_t nametable_low: 1;
-      uint8_t nametable_high: 1;
-      uint8_t fine_y: 3;
-      uint8_t unused: 1;
+      uint16_t coarse_x : 5;
+      uint16_t coarse_y : 5;
+      uint16_t nametable_low : 1;
+      uint16_t nametable_high : 1;
+      uint16_t fine_y : 3;
+      uint16_t unused : 1;
     };
   } t;
-
 
   union PPUCTRL {
     uint8_t reg;
@@ -188,8 +188,8 @@ public:
   // Where most sprite information is stored
   std::vector<uint8_t> oam;
 
-  // Sprites that are about to be loaded in the next scanline are stored in the secondary OAM
-  // Overflow flag in PPUSTATUS if something bad happens
+  // Sprites that are about to be loaded in the next scanline are stored in the
+  // secondary OAM Overflow flag in PPUSTATUS if something bad happens
   // TODO: sprite 0 hits
   // saves x positioning to easily render the sprite
   using pair = std::pair<uint8_t, uint8_t>;
@@ -199,10 +199,9 @@ public:
   std::queue<Sprite> sprite_shift;
   // helper map to find priority of rendering sprites
   // bool indicating if the PPU is currently rendering a sprite
-  // int indicating how many pixels (in horz direction) of the sprite have been rendered
-  // current sprite being rendered
+  // int indicating how many pixels (in horz direction) of the sprite have been
+  // rendered current sprite being rendered
   std::deque<Sprite> render_sprites;
-
 
   void sort_secondary_oam() {
     std::vector<uint8_t> temp(secondary_oam.size());
@@ -211,9 +210,9 @@ public:
       secondary_oam.pop();
     }
     std::vector<uint8_t> &r = oam;
-    std::sort(temp.begin(), temp.end(), [&r] (const auto &a, const auto &b) {
-        return r[a + 3] < r[b + 3];
-        });
+    std::sort(temp.begin(), temp.end(), [&r](const auto &a, const auto &b) {
+      return r[a + 3] < r[b + 3];
+    });
     for (size_t i = 0; i < temp.size(); i++) {
       secondary_oam.push(temp[i]);
     }
@@ -221,13 +220,13 @@ public:
 
   void move_sprite_pixels(Sprite &sprite) {
     bool flip_horz = oam[sprite.idx + 2] & 0x40;
-        if (flip_horz) {
-          sprite.sprite_low >>= 1;
-          sprite.sprite_high >>= 1;
-        } else {
-          sprite.sprite_low <<= 1;
-          sprite.sprite_high <<= 1;
-        }
+    if (flip_horz) {
+      sprite.sprite_low >>= 1;
+      sprite.sprite_high >>= 1;
+    } else {
+      sprite.sprite_low <<= 1;
+      sprite.sprite_high <<= 1;
+    }
   }
 
   void clear_secondary_oam() {
@@ -246,7 +245,6 @@ public:
   bool clock();
   void update_render();
 
-  
   // debugging functions
   olc::Pixel get_palette_color(uint8_t pixel, uint8_t palette);
   olc::Sprite *getScreen() const;
