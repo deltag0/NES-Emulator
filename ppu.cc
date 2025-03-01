@@ -392,7 +392,9 @@ bool Ppu::clock() {
     uint8_t coarse_x = v & 0b0000000000011111;
     uint8_t coarse_y = (v & 0b0000001111100000) >> 5;
     uint8_t fine_y = (v & 0b0111000000000000) >> 12;
-    uint8_t curr_render_y = coarse_y * 8 + fine_y;
+    uint8_t curr_render_y = scanline;
+    /* std::cout << "SCANLINE " << static_cast<uint16_t>(scanline) << "\n"; */
+    /* std::cout << "Y " << static_cast<uint16_t>(coarse_y * 8 + fine_y) << "\n"; */
 
     if (cycle >= 1 && cycle <= 256) {
       // doing this in less cycles because I wanted to
@@ -460,14 +462,14 @@ bool Ppu::clock() {
                           ((pattern_table_low & 0x80) >> 7);
 
       while (sprite_shift.size() > 0 &&
-             sprite_shift.front().sprite_x == coarse_x * 8 + fine_x) {
+             sprite_shift.front().sprite_x == cycle - 1) {
         render_sprites.emplace_back(sprite_shift.front());
         sprite_shift.pop();
       }
 
       // rendering the pixels for the current scanline (fine_y)
       if (mask.bkg_rendering) {
-        sprScreen->SetPixel(coarse_x * 8 + fine_x, curr_render_y,
+        sprScreen->SetPixel(cycle - 1, curr_render_y,
                             get_palette_color(bkg_pixel, palette_bits));
       }
       pattern_table_high <<= 1;
@@ -497,19 +499,19 @@ bool Ppu::clock() {
         }
 
         if (pixel != 0) {
-          sprScreen->SetPixel(coarse_x * 8 + fine_x, curr_render_y,
+          sprScreen->SetPixel(cycle - 1, curr_render_y,
                               get_palette_color(pixel, render_sprite->palette));
         }
         move_sprite_pixels(*render_sprite);
 
         // sprite 0 hit detection
-        if (check_sprite0_hit(*render_sprite, coarse_x * 8 + fine_x, bkg_pixel, pixel)) {
+        if (check_sprite0_hit(*render_sprite, cycle - 1, bkg_pixel, pixel)) {
           status.sprite_0_hit = 1;
         }
       }
 
       while (render_sprites.size() > 0 &&
-             coarse_x * 8 + fine_x >= render_sprites.front().sprite_x + 7) {
+             cycle - 1 >= render_sprites.front().sprite_x + 7) {
         render_sprites.pop_front();
       }
 
@@ -540,7 +542,7 @@ bool Ppu::clock() {
 
         sprite.idx = sprite_addr;
         bool flip_vert = oam[sprite.idx + 2] & 0x80;
-        sprite.sprite_y = curr_render_y - oam[sprite.idx] - 1;
+        sprite.sprite_y = curr_render_y - oam[sprite.idx];
         sprite.sprite_x = oam[sprite.idx + 3];
 
         if (flip_vert) {

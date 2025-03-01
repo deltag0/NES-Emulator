@@ -215,6 +215,7 @@ public:
   bool check_sprite0_hit(Sprite &sprite, uint8_t x_rendering_pos, uint8_t bkg_pixel, uint8_t sprite_pixel);
 
   void sort_secondary_oam() {
+    // sort by sprites by their x position
     std::vector<uint8_t> temp(secondary_oam.size());
     for (size_t i = 0; i < temp.size(); i++) {
       temp[i] = secondary_oam.front();
