@@ -11,7 +11,6 @@
 #include "bus.h"
 #include "cartridge.h"
 #include "cpu.h"
-#include "logging.h"
 #define OLC_PGE_APPLICATION
 #define OLC_ENABLE_EXPERIMENTATION
 #include "olcPixelGameEngine.h"
@@ -110,10 +109,10 @@ public:
   }
 
   bool OnUserCreate() {
-    auto card = std::make_unique<Cartridge>("donkey_kong.nes");
+    auto card = std::make_unique<Cartridge>("Super_mario_brothers.nes");
     nes.insert_card(std::move(card));
 
-    mapAsm = nes.cpu.disassemble(0xC000, 0xFFFF);
+    /* mapAsm = nes.cpu.disassemble(0xC000, 0xFFFF); */
 
     nes.reset();
 
@@ -129,18 +128,8 @@ public:
       // ResidualTime is reset at each frame, and
       // if ResidualTime > 0, we still need time until
       // displaying the next frame
-      if (debug) {
-        do {
-          nes.clock();
-        } while (!nes.cpu.complete());
 
-        debug_log_cpu(nes.debug_out, nes.cpu, nes.ppu, debug);
-        // set up CPU for next instruction
-        // because its clock is slower, it might have more cycles
-        do {
-          nes.clock();
-        } while (nes.cpu.complete());
-      } else if (fResidualTime > 0.0f)
+      if (fResidualTime > 0.0f)
         fResidualTime -= fElapsedTime;
       else {
         fResidualTime =
@@ -160,7 +149,6 @@ public:
           nes.clock();
         } while (!nes.cpu.complete());
 
-        debug_log_cpu(nes.debug_out, nes.cpu, nes.ppu, debug);
         // set up CPU for next instruction
         // because its clock is slower, it might have more cycles
         do {
@@ -186,7 +174,6 @@ public:
             nes.clock();
           } while (!nes.cpu.complete());
 
-          debug_log_cpu(nes.debug_out, nes.cpu, nes.ppu, debug);
           // set up CPU for next instruction
           // because its clock is slower, it might have more cycles
           do {
@@ -204,7 +191,6 @@ public:
             nes.clock();
           } while (!nes.cpu.complete());
 
-          debug_log_cpu(nes.debug_out, nes.cpu, nes.ppu, debug);
           // set up CPU for next instruction
           // because its clock is slower, it might have more cycles
           do {

@@ -531,6 +531,7 @@ bool Ppu::clock() {
         if (mask.bkg_rendering || mask.sprite_rendering) {
           v &= (0xFFE0);
           v |= t.coarse_x;
+          fine_x = 0;
         }
       }
 
@@ -600,10 +601,13 @@ bool Ppu::clock() {
     if (cycle == 340 && scanline == 261) {
       scanline = 0;
       cycle = 0;
-    } else if (cycle == 1) {
+    } else if (cycle == 340 && scanline == -1) {
+      scanline++;
+      cycle = 0;
+    } else if (scanline == -1 && cycle == 1) {
       status.vblank = 0;
-      status.sprite_0_hit = 0;
-      status.sprite_overflow = 0;
+    } else if (cycle == 1) {
+      status.reg = 0x00;
     } else if (cycle == 257) {
       // update coarse_x
       if (mask.bkg_rendering || mask.sprite_rendering) {
@@ -611,7 +615,7 @@ bool Ppu::clock() {
         v |= t.coarse_x;
         v |= t.nametable_low << 10;
       }
-    } else if (cycle >= 280 && cycle <= 304) {
+    } else if (scanline == 261 && cycle >= 280 && cycle <= 304) {
       if (mask.bkg_rendering || mask.sprite_rendering) {
         // update coarse y
         v = (v & 0xFC1F) | (t.coarse_y << 5);
@@ -647,7 +651,6 @@ bool Ppu::check_sprite0_hit(Sprite &sprite, uint8_t x_rendering_pos, uint8_t bkg
   if (x_rendering_pos >= 0 && x_rendering_pos <= 7 && (mask.sprite_leftmost || mask.bkg_leftmost)) return false;
   else if (x_rendering_pos == 255) return false;
   else if (bkg_pixel == 0x00 || sprite_pixel == 0x00) return false;
-  return true;
 }
 
 /*

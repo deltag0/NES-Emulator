@@ -18,7 +18,6 @@ Cartridge::~Cartridge() {}
 
 Cartridge::Cartridge(const std::string &file) {
   std::ifstream ifs{file, std::ios::binary};
-  sHeader header;
 
   if (!ifs) {
     throw std::runtime_error("File does not exist.\n");

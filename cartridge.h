@@ -26,6 +26,8 @@ public:
   Cartridge(const std::string &file);
   ~Cartridge();
 
+  sHeader header;
+
   // we need all these read an write functions because in the NES, the cartridge
   // is connected to both CPU and PPU. CPU and PPU can read and write to the
   // cartridge

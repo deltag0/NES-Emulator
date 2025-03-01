@@ -5,6 +5,9 @@
 
 #include "bus.h"
 #include "cpu.h"
+#include "logging.h"
+
+#define DEBUG_CPU false
 
 Cpu::Cpu(Bus *bus) : bus{bus} {
   using a = Cpu;
@@ -221,6 +224,11 @@ void Cpu::clock() {
   // then wait out the cycles until they reach 0
   if (cycles == 0 && !oam) {
     opcode = read(PC);
+    log << lookup[opcode].name << "\n";
+
+    if (DEBUG_CPU) {
+      debug_log_cpu(log, *this, nullptr, true);
+    }
 
     set_flag(FLAGS::U, 1);
     PC++;

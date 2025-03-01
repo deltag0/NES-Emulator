@@ -196,6 +196,7 @@ struct Cpu {
     uint8_t clock_count{0x00};
     bool oam{false};
 
+    std::ofstream log{"debug.txt"};
 
     // Pointer to Bus it's a part of
     Bus *bus{nullptr};

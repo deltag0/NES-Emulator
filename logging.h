@@ -24,7 +24,7 @@ void info_log(std::ofstream out, std::string message) {
   out << message << "\n";
 }
 
-void debug_log_cpu(std::ofstream &out, Cpu &cpu, Ppu &ppu, bool debugging) {
+void debug_log_cpu(std::ofstream &out, Cpu &cpu, Ppu *ppu, bool debugging) {
   if (!debugging)
     return;
 
@@ -46,22 +46,24 @@ void debug_log_cpu(std::ofstream &out, Cpu &cpu, Ppu &ppu, bool debugging) {
   std::string ppu_cycles = ",";
   std::string ppu_scanlines = " PPU:  ";
 
-  if (ppu.scanline >= 10)
-    ppu_scanlines = " PPU: ";
-  if (ppu.scanline >= 100)
-    ppu_scanlines = " PPU:";
-  if (ppu.cycle < 100)
-    ppu_cycles += " ";
-  if (ppu.cycle < 10)
-    ppu_cycles += " ";
+  if (ppu) {
+    if (ppu->scanline >= 10)
+      ppu_scanlines = " PPU: ";
+    if (ppu->scanline >= 100)
+      ppu_scanlines = " PPU:";
+    if (ppu->cycle < 100)
+      ppu_cycles += " ";
+    if (ppu->cycle < 10)
+      ppu_cycles += " ";
 
-  sInst += hex(addr, 4) + "  " + hex(opcode, 2) + " ";
-  status += "A:" + hex(cpu.accumulator, 2) + " X:" + hex(cpu.x, 2) +
-            " Y:" + hex(cpu.y, 2) + " P:" + hex(cpu.status, 2) +
-            " SP:" + hex(cpu.stack_pointer, 2) + ppu_scanlines +
-            std::to_string(ppu.scanline) + ppu_cycles +
-            std::to_string(ppu.cycle) + " " +
-            "CYC:" + std::to_string(cpu.total_cycles);
+    sInst += hex(addr, 4) + "  " + hex(opcode, 2) + " ";
+    status += "A:" + hex(cpu.accumulator, 2) + " X:" + hex(cpu.x, 2) +
+              " Y:" + hex(cpu.y, 2) + " P:" + hex(cpu.status, 2) +
+              " SP:" + hex(cpu.stack_pointer, 2) + ppu_scanlines +
+              std::to_string(ppu->scanline) + ppu_cycles +
+              std::to_string(ppu->cycle) + " " +
+              "CYC:" + std::to_string(cpu.total_cycles);
+  }
   addr++;
 
   if (cpu.lookup[opcode].addrmode == &Cpu::imp) {
@@ -142,9 +144,9 @@ void debug_log_cpu(std::ofstream &out, Cpu &cpu, Ppu &ppu, bool debugging) {
   out << sInst << std::setw(48 - sInst.length()) << "" << std::left
       << std::setw(30 + std::to_string(cpu.total_cycles).size()) << status
       << "\n";
-  /* std::cout << sInst << std::setw(48 - sInst.length()) << "" << std::left */
-  /*     << std::setw(30 + std::to_string(cpu.total_cycles).size()) << status */
-  /*     << "\n"; */
+  std::cout << sInst << std::setw(48 - sInst.length()) << "" << std::left
+      << std::setw(30 + std::to_string(cpu.total_cycles).size()) << status
+      << "\n";
 
   cpu.PC = PC_save;
 }

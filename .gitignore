@@ -4,3 +4,6 @@
 *.exe
 *.txt
 *.nes
+*.deb
+*.y
+*.x
