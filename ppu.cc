@@ -164,7 +164,7 @@ uint8_t Ppu::cpu_read(uint16_t adr, bool read) {
     break;
   case 0x0001:
     break;
-  case 0x0002: // Status 
+  case 0x0002: // Status
     data = status.reg;
     latched = 0x00;
     status.vblank = 0x00;
@@ -234,6 +234,10 @@ void Ppu::ppu_write(uint16_t adr, uint8_t val) {
       adr = 0x0008;
     else if (adr == 0x001C)
       adr = 0x000C;
+    if ((mask.sprite_rendering && mask.bkg_rendering) && (adr == 0x0004 || adr == 0x0008 || adr == 0x000C)) {
+      adr = 0x0000; // Redirect to universal background color
+    }
+
     palettes[adr] = val;
   }
 }
@@ -271,9 +275,6 @@ uint8_t Ppu::ppu_read(uint16_t adr, bool read) {
     // we AND the address because it has mirrors
     // on 0x3F
     adr &= 0x001F;
-    // might be unnsecessary, but
-    // not certain if the adr can access the background color
-    // through mirrored indexes
     if (adr == 0x0010)
       adr = 0x0000;
     else if (adr == 0x0014)
@@ -282,8 +283,11 @@ uint8_t Ppu::ppu_read(uint16_t adr, bool read) {
       adr = 0x0008;
     else if (adr == 0x001C)
       adr = 0x000C;
+    if ((mask.sprite_rendering && mask.bkg_rendering) && (adr == 0x0004 || adr == 0x0008 || adr == 0x000C)) {
+      adr = 0x0000; // Redirect to universal background color
+    }
 
-    data = palettes[adr];
+    data = palettes[adr] & 0x3F;
   }
   return data;
 }
@@ -394,7 +398,8 @@ bool Ppu::clock() {
     uint8_t fine_y = (v & 0b0111000000000000) >> 12;
     uint8_t curr_render_y = scanline;
     /* std::cout << "SCANLINE " << static_cast<uint16_t>(scanline) << "\n"; */
-    /* std::cout << "Y " << static_cast<uint16_t>(coarse_y * 8 + fine_y) << "\n"; */
+    /* std::cout << "Y " << static_cast<uint16_t>(coarse_y * 8 + fine_y) <<
+     * "\n"; */
 
     if (cycle >= 1 && cycle <= 256) {
       // doing this in less cycles because I wanted to
@@ -471,6 +476,8 @@ bool Ppu::clock() {
       if (mask.bkg_rendering) {
         sprScreen->SetPixel(cycle - 1, curr_render_y,
                             get_palette_color(bkg_pixel, palette_bits));
+      } else {
+        sprScreen->SetPixel(cycle - 1, curr_render_y, get_palette_color(0, 0));
       }
       pattern_table_high <<= 1;
       pattern_table_low <<= 1;
@@ -531,8 +538,9 @@ bool Ppu::clock() {
         render_sprites.clear();
         // update coarse_x
         if (mask.bkg_rendering || mask.sprite_rendering) {
-          v &= (0xFFE0);
+          v &= (0xFBE0);
           v |= t.coarse_x;
+          v |= t.nametable_low << 10;
         }
       }
 
@@ -570,9 +578,12 @@ bool Ppu::clock() {
       // Tiles for next scanline are loaded into shift registers
       cycle++;
     } else if (cycle >= 337 && cycle <= 340) {
-      // random fetches for no reason, so we can just increment cycles ig
-      scanline++;
-      cycle = 0;
+      if (cycle == 340) {
+        scanline++;
+        cycle = 0;
+      } else {
+        cycle++;
+      }
     } else {
       cycle++;
     }
@@ -592,8 +603,7 @@ bool Ppu::clock() {
       cycle++;
       status.vblank = 1;
       if (control.nmi) {
-        // TODO: I used to return immediately, check this
-        return_val = 1;
+        return 1;
       }
     } else
       cycle++;
@@ -643,12 +653,18 @@ bool Ppu::clock() {
   return return_val;
 }
 
-bool Ppu::check_sprite0_hit(Sprite &sprite, uint8_t x_rendering_pos, uint8_t bkg_pixel, uint8_t sprite_pixel) {
-  if (sprite.idx != 0x00) return false;
+bool Ppu::check_sprite0_hit(Sprite &sprite, uint8_t x_rendering_pos,
+                            uint8_t bkg_pixel, uint8_t sprite_pixel) {
+  if (sprite.idx != 0x00)
+    return false;
 
-  if (x_rendering_pos >= 0 && x_rendering_pos <= 7 && (mask.sprite_leftmost || mask.bkg_leftmost)) return false;
-  else if (x_rendering_pos == 255) return false;
-  else if (bkg_pixel == 0x00 || sprite_pixel == 0x00) return false;
+  if (x_rendering_pos >= 0 && x_rendering_pos <= 7 &&
+      (mask.sprite_leftmost || mask.bkg_leftmost))
+    return false;
+  else if (x_rendering_pos == 255)
+    return false;
+  else if (bkg_pixel == 0x00 || sprite_pixel == 0x00)
+    return false;
   return true;
 }
 

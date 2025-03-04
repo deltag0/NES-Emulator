@@ -23,14 +23,6 @@ struct Sprite {
   uint8_t priority{0x00};
 };
 
-struct Bkg_tile {
-  uint8_t bkg_low{0x00};
-  uint8_t bkg_high{0x00};
-  uint8_t coarse_x{0x00};
-  uint8_t coarse_y{0x00};
-  uint8_t fine_y{0x00};
-};
-
 
 class Ppu {
 public:
@@ -140,7 +132,7 @@ public:
   //
 
   union T {
-    uint16_t reg;
+    uint16_t reg{0x0000};
     struct {
       uint16_t coarse_x : 5;
       uint16_t coarse_y : 5;
@@ -212,6 +204,9 @@ public:
   // int indicating how many pixels (in horz direction) of the sprite have been
   // rendered current sprite being rendered
   std::deque<Sprite> render_sprites;
+  std::queue<pair> render_bkg;
+
+  void store_current_bkg_pal(uint8_t coarse_x, uint8_t coarse_y, uint8_t fine_y);
   bool check_sprite0_hit(Sprite &sprite, uint8_t x_rendering_pos, uint8_t bkg_pixel, uint8_t sprite_pixel);
 
   void sort_secondary_oam() {
@@ -244,6 +239,11 @@ public:
   void clear_secondary_oam() {
     std::queue<uint8_t> q;
     std::swap(q, secondary_oam);
+  }
+
+  void clear_bkg_shift() {
+    std::queue<pair> q;
+    std::swap(q, render_bkg);
   }
 
   void clear_sprite_shift() {

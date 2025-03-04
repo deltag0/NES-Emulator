@@ -224,7 +224,6 @@ void Cpu::clock() {
   // then wait out the cycles until they reach 0
   if (cycles == 0 && !oam) {
     opcode = read(PC);
-    log << lookup[opcode].name << "\n";
 
     if (DEBUG_CPU) {
       debug_log_cpu(log, *this, nullptr, true);
@@ -244,6 +243,7 @@ void Cpu::clock() {
     // TODO: not exactly cycle accurate because it could have 514 cycles
     // but for doing this it would have to be cycle accurate
     cycles += 513;
+    total_cycles += 513;
     oam = false;
   }
 
