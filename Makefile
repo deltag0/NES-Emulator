@@ -1,7 +1,7 @@
 CXX = g++ -std=c++20
 EXEC = run
-CXXFLAGS = -Wall -g -O -MMD
-LDFLAGS = -lgdiplus -lopengl32 -ldwmapi -lshlwapi -lgdi32
+CXXFLAGS = -Wall -g -O -MMD -IC:/Users/ioan1/SDL2-2.30.10/x86_64-w64-mingw32/include
+LDFLAGS = -lgdiplus -lopengl32 -ldwmapi -lshlwapi -lgdi32 -LC:/Users/ioan1/SDL2-2.30.10/x86_64-w64-mingw32/lib -lmingw32 -lSDL2
 SOURCES = olcNes.cc cpu.cc bus.cc disassembler.cc ppu.cc cartridge.cc mapper.cc mapper_000.cc dma.cc
 OBJECTS = $(SOURCES:.cc=.o)
 DEPENDS = $(SOURCES:.cc=.d)
