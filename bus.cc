@@ -1,12 +1,16 @@
 #include "bus.h"
 
 #include "cartridge.h"
+#include "controller.h"
 #include "cpu.h"
 #include "ppu.h"
 #include "dma.h"
 #include <cstdint>
 #include <iostream>
 #include <memory>
+
+#define CONTROLLER_POLL 0x4016
+#define TRIGGER_OAM 0x4014
 
 Bus::Bus() : cpu{this}, ppu{}, dma{this, &ppu}  {}
 
@@ -27,10 +31,19 @@ void Bus::Cpu_write(uint16_t adr, uint8_t data) {
   // will be the top 2 bytes of where the copying
   // from OAM starts. So if data = 0x02, we copy the data
   // from 0x0200 to 0x02FF (256 bytes or entire OAM always)
-  else if (adr == 0x4014) {
+  else if (adr == TRIGGER_OAM) {
     oamdma(data);
     cpu.oam = true;
   }
+  else if (adr == CONTROLLER_POLL) {
+    if (data == 1) { // signal controller to poll its input
+      controller.detect_input();
+    }
+    else {
+      controller.shifted_count = 0;
+    }
+  }
+
 }
 
 uint8_t Bus::Cpu_read(uint16_t adr, bool bReadOnly) {
@@ -49,6 +62,16 @@ uint8_t Bus::Cpu_read(uint16_t adr, bool bReadOnly) {
   // cpu accessing PPU registers to communicate with it
   else if (adr >= 0x2000 && adr <= 0x3FFF) {
     return ppu.cpu_read(adr & 0x0007, bReadOnly);
+  }
+  else if (adr == CONTROLLER_POLL) {
+    if (controller.shifted_count == 8) {
+      return 0;
+    }
+    else {
+      data = 0x01 & controller.input.reg;
+      controller.shifted_count++;
+      controller.input.reg >>= 1;
+    }
   }
 
   return data;

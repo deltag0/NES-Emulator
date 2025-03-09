@@ -2,6 +2,7 @@
 #define BUS_H
 
 #include "cartridge.h"
+#include "controller.h"
 #include "cpu.h"
 #include "ppu.h"
 #include "dma.h"
@@ -26,6 +27,7 @@ public:
   // Devices
   Cpu cpu;
   Ppu ppu;
+  Controller controller;
   Dma dma;
   uint8_t cpu_ram[MAX_MEMORY]{0x00};
   std::unique_ptr<Cartridge> card;
