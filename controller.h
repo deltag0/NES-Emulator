@@ -19,6 +19,7 @@ struct Controller {
   uint8_t shifted_count = 0;
 
   void detect_input();
+  void detect_input_keyboard();
 };
 
 #endif

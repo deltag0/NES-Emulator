@@ -361,7 +361,6 @@ void Ppu::update_render() {
         v &= ~0x7000;
 
         if (((v & 0x03E0) >> 5) == 29) {
-          frame_complete = true;
           // reset coarse_y
           v &= ~0x03E0;
           v ^= 0x0800;
@@ -611,6 +610,7 @@ bool Ppu::clock() {
   } else if (scanline == 261) {
     if (cycle == 340 && scanline == 261) {
       scanline = 0;
+      frame_complete = true;
       cycle = 0;
     } else if (cycle == 1) {
       status.vblank = 0;
@@ -632,9 +632,7 @@ bool Ppu::clock() {
         v &= 0xF7FF;
         v |= t.nametable_high << 11;
       }
-    } else {
-      frame_complete = false;
-    }
+    } 
 
     if (cycle != 340) {
       cycle++;

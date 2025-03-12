@@ -109,7 +109,7 @@ public:
   }
 
   bool OnUserCreate() {
-    auto card = std::make_unique<Cartridge>("Balloon Fight (E).nes");
+    auto card = std::make_unique<Cartridge>("Super Mario Bros (E).nes");
     nes.insert_card(std::move(card));
 
     /* mapAsm = nes.cpu.disassemble(0xC000, 0xFFFF); */

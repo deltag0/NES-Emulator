@@ -12,7 +12,6 @@ void Controller::detect_input() {
 
   SDL_Joystick *joystick = SDL_JoystickOpen(0);
   if (!joystick) {
-    std::cerr << "No joystick found." << std::endl;
     SDL_Quit();
     return;
   }
@@ -48,4 +47,36 @@ void Controller::detect_input() {
       break;
     }
   }
+}
+void Controller::detect_input_keyboard() {
+  // Initialize SDL for video (keyboard input)
+  if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+    std::cerr << "SDL_Init Error: " << SDL_GetError() << std::endl;
+    return;
+  }
+
+  // Pump events so the keyboard state is updated
+  SDL_PumpEvents();
+
+  // Get the current keyboard state array
+  const Uint8* keyState = SDL_GetKeyboardState(NULL);
+
+  // Map the keys to your input structure
+  // Use WASD for directional input:
+  input.up       = keyState[SDL_SCANCODE_W] ? 1 : 0;
+  input.down     = keyState[SDL_SCANCODE_S] ? 1 : 0;
+  input.left     = keyState[SDL_SCANCODE_A] ? 1 : 0;
+  input.right    = keyState[SDL_SCANCODE_D] ? 1 : 0;
+
+  // Map Spacebar to the A button (typically jump)
+  input.a_button = keyState[SDL_SCANCODE_SPACE] ? 1 : 0;
+
+  // Map the [ key to the B button
+  input.b_button = keyState[SDL_SCANCODE_LEFTBRACKET] ? 1 : 0;
+
+  // Map Enter to the Start button
+  input.start    = keyState[SDL_SCANCODE_RETURN] ? 1 : 0;
+
+  // Optionally, map another key for Select if desired:
+  // input.select = keyState[SDL_SCANCODE_X] ? 1 : 0;
 }
