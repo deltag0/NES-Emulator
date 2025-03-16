@@ -2,6 +2,7 @@
 #include "bus.h"
 #include "mapper.h"
 #include "mapper_000.h"
+#include "mapper_001.h"
 #include <cassert>
 #include <cstdint>
 #include <fstream>
@@ -70,7 +71,7 @@ Cartridge::Cartridge(const std::string &file) {
         std::unique_ptr<Mapper_000>{new Mapper_000{nPRGBanks, nCHRBanks}});
     break;
   case 1:
-    // TODO:
+    mapper = std::move(std::unique_ptr<Mapper_001>{new Mapper_001(nPRGBanks, nCHRBanks)});
     break;
   case 2:
     // TODO:
@@ -82,7 +83,6 @@ Cartridge::Cartridge(const std::string &file) {
 // cpu_read will read from the cartridge program memory using the mapper
 bool Cartridge::cpu_read(uint16_t adr, uint8_t &data) {
   uint16_t mapped_adr{0};
-  // TODO: make sure the sizes check in cpu_read and ppu_read make sense
   if (vPRGMemory.size() > 0 && mapper->cpu_read_mapper(adr, mapped_adr)) {
     data = vPRGMemory[mapped_adr];
     return true;
