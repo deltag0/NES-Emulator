@@ -22,7 +22,7 @@ bool Mapper_000::cpu_read_mapper(uint16_t adr, uint16_t &mapped_adr) {
   return false;
 }
 
-bool Mapper_000::cpu_write_mapper(uint16_t adr, uint32_t &mapped_adr) {
+bool Mapper_000::cpu_write_mapper(uint16_t adr, uint32_t &mapped_adr, uint8_t data) {
   if (adr >= 0x8000 && adr <= 0xFFFF) {
     mapped_adr = adr & (nPRGBanks > 1 ? 0x7FFF : 0x3FFF);
     return true;

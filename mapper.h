@@ -2,12 +2,16 @@
 #define MAPPER
 
 #include <cstdint>
+#include <utility>
+#define SWITCH1 std::pair<uint16_t, uint16_t>{0x8000, 0xBFFF}
+#define SWITCH2 std::pair<uint16_t, uint16_t>{0xC000, 0xFFFF}
+#define BANK_SIZE 0x4000
 
 // Parent class for the different kind of mappers on the NES
 class Mapper {
   public:
   virtual bool cpu_read_mapper(uint16_t adr, uint16_t &mapped_adr);
-  virtual bool cpu_write_mapper(uint16_t adr, uint32_t &mapped_adr);
+  virtual bool cpu_write_mapper(uint16_t adr, uint32_t &mapped_adr, uint8_t data);
   virtual bool ppu_read_mapper(uint16_t adr, uint32_t &mapped_adr);
   virtual bool ppu_write_mapper(uint16_t adr, uint32_t &mapped_adr);
 

@@ -94,7 +94,7 @@ bool Cartridge::cpu_read(uint16_t adr, uint8_t &data) {
 // cpu_write will write to the cartridge program memory using the mapper
 bool Cartridge::cpu_write(uint16_t adr, uint8_t data) {
   uint32_t mapped_adr{0};
-  if (mapper->cpu_write_mapper(adr, mapped_adr)) {
+  if (mapper->cpu_write_mapper(adr, mapped_adr, data)) {
     vPRGMemory[mapped_adr] = data;
     return true;
   }
