@@ -53,12 +53,18 @@ private:
   // From 0-3
   uint8_t prg_bank_mode = 0x00;
   // 32 max banks possible, but for now, we'll have less
-  uint8_t bank_selected = 0x00;
+  uint8_t prg_bank_selected = 0x00;
+
+
+  // 1 (switch 2 seperate 4 KB banks) or 0 (switch 1 8 KB bank at a time)
+  uint8_t chr_bank_mode = 0x00;
+
 
   void write_to_register(BANK bank, uint8_t bit);
   void write_to_control_register(uint8_t value);
   void set_program_mode();
-  uint32_t find_mapped_addr(std::pair<uint16_t, uint16_t> &switch_range, uint16_t addr);
+  uint32_t find_prg_mapped_addr(std::pair<uint16_t, uint16_t> &switch_range, uint16_t addr);
+  uint32_t find_chr_mapped_addr(uint16_t addr);
 
   friend class Cartridge;
 };

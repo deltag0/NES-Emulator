@@ -1,8 +1,10 @@
 #include "mapper_001.h"
 #include "mapper.h"
 #include <cstdint>
+#include <exception>
 #include <map>
 #include <utility>
+#include <iostream>
 
 // TODO: I think I previously finished the mapping for CPU, but Not tested yet, so do that ya dumb sonofabitch, then PPU mapping and nametables
 
@@ -14,18 +16,35 @@ void Mapper_001::set_program_mode() {
 }
 
 uint32_t
-Mapper_001::find_mapped_addr(std::pair<uint16_t, uint16_t> &switch_range,
+Mapper_001::find_prg_mapped_addr(std::pair<uint16_t, uint16_t> &switch_range,
                              uint16_t addr) {
   uint32_t mapped_addr = 0;
   auto [low, high] = switch_range;
   if (low <= addr && addr <= high) {
-    mapped_addr = low & addr + BANK_SIZE * bank_selected;
+    mapped_addr = (low & addr) + PRG_BANK_SIZE * prg_bank_selected;
   } else if (prg_bank_mode == 2) {
     mapped_addr = low & addr;
   } else if (prg_bank_mode == 3) {
-    mapped_addr = low & addr + nPRGBanks * BANK_SIZE;
+    mapped_addr = (low & addr) + nPRGBanks * PRG_BANK_SIZE;
   }
   return mapped_addr;
+}
+
+uint32_t Mapper_001::find_chr_mapped_addr(uint16_t addr) {
+  if (chr_bank_mode == 0x01) {
+    if (CHR_SWITCH1.first <= addr && addr <= CHR_SWITCH1.second) {
+      return (addr & CHR_SWITCH1.first) + (chr_bank_0.reg & 0x1F) * CHR_BANK_SIZE;
+    }
+    else if (CHR_SWITCH2.first <= addr && addr <= CHR_SWITCH2.second) {
+      return (addr & CHR_SWITCH2.first) + (chr_bank_1.reg & 0x1F) * CHR_BANK_SIZE;
+    }
+    else {
+      std::cout << "Address should not be out of the range of the switch intervals for CHR\n";
+    }
+  }
+  else {
+    return (addr & CHR_SWITCH1.first) + (chr_bank_0.reg & 0x1E) * CHR_BANK_SIZE;
+  }
 }
 
 void Mapper_001::write_to_register(BANK bank, uint8_t val) {
@@ -89,6 +108,7 @@ void Mapper_001::write_to_control_register(uint8_t value) {
     break;
   case 4:
     control.chr_bank = bit;
+    chr_bank_mode = control.chr_bank;
     // Reset the counter after the fifth bit is written.
     control.unused = 0;
     return;
@@ -101,46 +121,60 @@ Mapper_001::Mapper_001(uint8_t nPRGBanks, uint8_t nCHRBanks)
 Mapper_001::~Mapper_001() {}
 
 bool Mapper_001::cpu_read_mapper(uint16_t adr, uint16_t &mapped_adr) {
+  if (0xFFFF < adr || adr < 0x8000) return false;
   if (!double_block_mode) {
     std::pair<uint16_t, uint16_t> range =
-        prg_bank_mode == 2 ? SWITCH2 : SWITCH1;
-    mapped_adr = find_mapped_addr(range, adr);
+        prg_bank_mode == 2 ? PRG_SWITCH2 : PRG_SWITCH1;
+    mapped_adr = find_prg_mapped_addr(range, adr);
   }
   else {
-    mapped_adr = adr & SWITCH1.first + BANK_SIZE * bank_selected;
+    mapped_adr = (adr & PRG_SWITCH1.first) + PRG_BANK_SIZE * prg_bank_selected;
   }
+  return true;
 }
 
 
 bool Mapper_001::cpu_write_mapper(uint16_t adr, uint32_t &mapped_adr,
                                   uint8_t data) {
+  bool mapper_range = false;
+
   if (0x8000 <= adr && adr <= 0x9FFF) {
     write_to_control_register(data);
-    return true;
+    mapper_range = true;
   } else if (0xA000 <= adr && adr <= 0xBFFF) {
     write_to_register(chr_bank_0, data);
-    return true;
+    mapper_range = true;
   } else if (0xC000 <= adr && adr <= 0xDFFF) {
     write_to_register(chr_bank_1, data);
-    return true;
+    mapper_range = true;
   } else if (0xE000 <= adr && adr <= 0xFFFF) {
     write_to_register(prg, data);
-    bank_selected = double_block_mode == true ? prg.reg & 0x0F : prg.reg & 0x0E;
-    return true;
+    prg_bank_selected = double_block_mode == true ? prg.reg & 0x0E : prg.reg & 0x0F;
+    mapper_range = true;
   }
 
   if (!double_block_mode) {
     std::pair<uint16_t, uint16_t> range =
-        prg_bank_mode == 2 ? SWITCH2 : SWITCH1;
-    mapped_adr = find_mapped_addr(range, adr);
+        prg_bank_mode == 2 ? PRG_SWITCH2 : PRG_SWITCH1;
+    mapped_adr = find_prg_mapped_addr(range, adr);
   }
   else {
-    mapped_adr = adr & SWITCH1.first + BANK_SIZE * bank_selected;
+    mapped_adr = (adr & PRG_SWITCH1.first) + PRG_BANK_SIZE * prg_bank_selected;
   }
 
+  return mapper_range;
+}
+
+bool Mapper_001::ppu_read_mapper(uint16_t adr, uint32_t &mapped_adr) {
+  if (0x1FFF < adr || adr < 0x0000) return false;
+  mapped_adr = find_chr_mapped_addr(adr);
+
+
+  return true;
+}
+
+bool Mapper_001::ppu_write_mapper(uint16_t adr, uint32_t &mapped_adr) {
   return false;
 }
 
-bool Mapper_001::ppu_read_mapper(uint16_t adr, uint32_t &mapped_adr) {}
 
-bool Mapper_001::ppu_write_mapper(uint16_t adr, uint32_t &mapped_adr) {}

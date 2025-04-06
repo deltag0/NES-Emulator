@@ -3,9 +3,13 @@
 
 #include <cstdint>
 #include <utility>
-#define SWITCH1 std::pair<uint16_t, uint16_t>{0x8000, 0xBFFF}
-#define SWITCH2 std::pair<uint16_t, uint16_t>{0xC000, 0xFFFF}
-#define BANK_SIZE 0x4000
+#define PRG_SWITCH1 std::pair<uint16_t, uint16_t>{0x8000, 0xBFFF}
+#define PRG_SWITCH2 std::pair<uint16_t, uint16_t>{0xC000, 0xFFFF}
+#define CHR_SWITCH1 std::pair<uint16_t, uint16_t>{0x0000, 0x0FFF}
+#define CHR_SWITCH2 std::pair<uint16_t, uint16_t>{0x1000, 0x1FFF}
+
+#define PRG_BANK_SIZE 0x4000
+#define CHR_BANK_SIZE 0x1000
 
 // Parent class for the different kind of mappers on the NES
 class Mapper {
