@@ -82,7 +82,7 @@ Cartridge::Cartridge(const std::string &file) {
 
 // cpu_read will read from the cartridge program memory using the mapper
 bool Cartridge::cpu_read(uint16_t adr, uint8_t &data) {
-  uint16_t mapped_adr{0};
+  uint32_t mapped_adr{0};
   if (vPRGMemory.size() > 0 && mapper->cpu_read_mapper(adr, mapped_adr)) {
     data = vPRGMemory[mapped_adr];
     return true;

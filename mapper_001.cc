@@ -2,6 +2,7 @@
 #include "mapper.h"
 #include <cstdint>
 #include <exception>
+#include <ios>
 #include <map>
 #include <utility>
 #include <iostream>
@@ -13,6 +14,9 @@ void Mapper_001::set_program_mode() {
   if (prg_bank_mode == 0 || prg_bank_mode == 1) {
     double_block_mode = true;
   }
+  else {
+    double_block_mode = false;
+  }
 }
 
 uint32_t
@@ -21,11 +25,11 @@ Mapper_001::find_prg_mapped_addr(std::pair<uint16_t, uint16_t> &switch_range,
   uint32_t mapped_addr = 0;
   auto [low, high] = switch_range;
   if (low <= addr && addr <= high) {
-    mapped_addr = (low & addr) + PRG_BANK_SIZE * prg_bank_selected;
+    mapped_addr = (addr - low) + PRG_BANK_SIZE * prg_bank_selected;
   } else if (prg_bank_mode == 2) {
-    mapped_addr = low & addr;
+    mapped_addr = addr - PRG_SWITCH1.first;
   } else if (prg_bank_mode == 3) {
-    mapped_addr = (low & addr) + nPRGBanks * PRG_BANK_SIZE;
+    mapped_addr = (addr - PRG_SWITCH2.first) + (nPRGBanks - 1) * PRG_BANK_SIZE;
   }
   return mapped_addr;
 }
@@ -47,7 +51,7 @@ uint32_t Mapper_001::find_chr_mapped_addr(uint16_t addr) {
   }
 }
 
-void Mapper_001::write_to_register(BANK bank, uint8_t val) {
+void Mapper_001::write_to_register(BANK &bank, uint8_t val) {
   // load bank registers bit by bit using bit shifting
   // if the last bit in the value is set, we must reset the register
   if (val & 0x80) {
@@ -58,19 +62,19 @@ void Mapper_001::write_to_register(BANK bank, uint8_t val) {
   uint8_t bit = val & 0x01;
 
   switch (bank.unused) {
-  case 0x01:
+  case 0x00:
     bank.bit1 = bit;
     break;
-  case 0x02:
+  case 0x01:
     bank.bit2 = bit;
     break;
-  case 0x03:
+  case 0x02:
     bank.bit3 = bit;
     break;
-  case 0x04:
+  case 0x03:
     bank.bit4 = bit;
     break;
-  case 0x05:
+  case 0x04:
     bank.bit5 = bit;
     bank.unused = 0;
     return;
@@ -86,7 +90,7 @@ void Mapper_001::write_to_control_register(uint8_t value) {
     control.unused = 0;
     return;
   }
-  // Extract only the LSB (the only bit that matters for shifting).
+  // Extract only the LSuint32_t &mapped_adr)B (the only bit that matters for shifting).
   uint8_t bit = value & 0x01;
 
   // Use the 'unused' field as a counter for how many bits have been written.
@@ -118,17 +122,16 @@ void Mapper_001::write_to_control_register(uint8_t value) {
 
 Mapper_001::Mapper_001(uint8_t nPRGBanks, uint8_t nCHRBanks)
     : nPRGBanks{nPRGBanks}, nCHRBanks{nCHRBanks} {}
-Mapper_001::~Mapper_001() {}
 
-bool Mapper_001::cpu_read_mapper(uint16_t adr, uint16_t &mapped_adr) {
+bool Mapper_001::cpu_read_mapper(uint16_t adr, uint32_t &mapped_adr) {
   if (0xFFFF < adr || adr < 0x8000) return false;
   if (!double_block_mode) {
     std::pair<uint16_t, uint16_t> range =
         prg_bank_mode == 2 ? PRG_SWITCH2 : PRG_SWITCH1;
-    mapped_adr = find_prg_mapped_addr(range, adr);
+    mapped_adr = static_cast<uint16_t>(find_prg_mapped_addr(range, adr));
   }
   else {
-    mapped_adr = (adr & PRG_SWITCH1.first) + PRG_BANK_SIZE * prg_bank_selected;
+    mapped_adr = (adr - PRG_SWITCH1.first) + PRG_BANK_SIZE * prg_bank_selected;
   }
   return true;
 }
@@ -149,7 +152,7 @@ bool Mapper_001::cpu_write_mapper(uint16_t adr, uint32_t &mapped_adr,
     mapper_range = true;
   } else if (0xE000 <= adr && adr <= 0xFFFF) {
     write_to_register(prg, data);
-    prg_bank_selected = double_block_mode == true ? prg.reg & 0x0E : prg.reg & 0x0F;
+    prg_bank_selected = double_block_mode ? prg.reg & 0x0E : prg.reg & 0x0F;
     mapper_range = true;
   }
 
@@ -159,7 +162,7 @@ bool Mapper_001::cpu_write_mapper(uint16_t adr, uint32_t &mapped_adr,
     mapped_adr = find_prg_mapped_addr(range, adr);
   }
   else {
-    mapped_adr = (adr & PRG_SWITCH1.first) + PRG_BANK_SIZE * prg_bank_selected;
+    mapped_adr = (adr - PRG_SWITCH1.first) + PRG_BANK_SIZE * prg_bank_selected;
   }
 
   return mapper_range;

@@ -14,7 +14,7 @@ Mapper_000::~Mapper_000() {}
 // so the memory is split into multiple parts. If there was 64KB of PRG ROM
 // then it could be split into 2 banks of 32KB fitting into 
 // 0x8000 to 0xFFFF
-bool Mapper_000::cpu_read_mapper(uint16_t adr, uint16_t &mapped_adr) {
+bool Mapper_000::cpu_read_mapper(uint16_t adr, uint32_t &mapped_adr) {
   if (adr >= 0x8000 && adr <= 0xFFFF) {
     mapped_adr = adr & (nPRGBanks > 1 ? 0x7FFF : 0x3FFF);
     return true;

@@ -14,13 +14,12 @@
 // Parent class for the different kind of mappers on the NES
 class Mapper {
   public:
-  virtual bool cpu_read_mapper(uint16_t adr, uint16_t &mapped_adr);
+  virtual bool cpu_read_mapper(uint16_t adr, uint32_t &mapped_adr);
   virtual bool cpu_write_mapper(uint16_t adr, uint32_t &mapped_adr, uint8_t data);
   virtual bool ppu_read_mapper(uint16_t adr, uint32_t &mapped_adr);
   virtual bool ppu_write_mapper(uint16_t adr, uint32_t &mapped_adr);
 
-  virtual ~Mapper() = 0;
-  
+  virtual ~Mapper() = default;
 };
 
 // Mapper (000) since there are multiple kind of mappers

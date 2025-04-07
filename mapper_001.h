@@ -1,19 +1,24 @@
 #ifndef MAPPER_1
 #define MAPPER_1
-#include "cartridge.h"
 #include "mapper.h"
 #include <cstdint>
 
+class Cartridge; // Forward declaration
+class TestMapper_001;
+ 
 class Mapper_001 : public Mapper {
 public:
-  bool cpu_read_mapper(uint16_t adr, uint16_t &mapped_adr) override;
+  bool cpu_read_mapper(uint16_t adr, uint32_t &mapped_adr) override;
   bool cpu_write_mapper(uint16_t adr, uint32_t &mapped_adr, uint8_t data) override;
   bool ppu_read_mapper(uint16_t adr, uint32_t &mapped_adr) override;
   bool ppu_write_mapper(uint16_t adr, uint32_t &mapped_adr) override;
-  ~Mapper_001();
+  virtual ~Mapper_001() {
+  }
 
-private:
+// NOTE: this is temporary, and just for testing
+// It should be private
   Mapper_001(uint8_t nPRGBanks, uint8_t nCHRBanks);
+private:
   uint8_t nPRGBanks;
   uint8_t nCHRBanks;
 
@@ -60,12 +65,13 @@ private:
   uint8_t chr_bank_mode = 0x00;
 
 
-  void write_to_register(BANK bank, uint8_t bit);
+  void write_to_register(BANK &bank, uint8_t bit);
   void write_to_control_register(uint8_t value);
   void set_program_mode();
   uint32_t find_prg_mapped_addr(std::pair<uint16_t, uint16_t> &switch_range, uint16_t addr);
   uint32_t find_chr_mapped_addr(uint16_t addr);
 
   friend class Cartridge;
+  friend class TestMapper_001;
 };
 #endif
