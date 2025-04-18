@@ -13,6 +13,7 @@
 
 // uint16_t has a max value of 2^16 -1 (highest index)
 #define MAX_MEMORY 2048
+#define MAX_CARTRIDGE_RAM 0x2000
 
 class Bus {
 public:
@@ -30,6 +31,7 @@ public:
   Controller controller;
   Dma dma;
   uint8_t cpu_ram[MAX_MEMORY]{0x00};
+  uint8_t cartridge_ram[MAX_CARTRIDGE_RAM]{0x00};
   std::unique_ptr<Cartridge> card;
   // Interface
   // this function was with a shared_ptr reference, but I don't really see the

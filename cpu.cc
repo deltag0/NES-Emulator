@@ -1279,7 +1279,7 @@ void Cpu::nmi() {
 }
 
 void Cpu::reset() {
-  stack_pointer = 0xFD; // might change
+  stack_pointer = 0xFF; // might change
   accumulator = 0x00;
   x = 0x00;
   y = 0x00;
@@ -1289,7 +1289,7 @@ void Cpu::reset() {
   adr = 0xFFFC;
   uint8_t low = read(adr);
   uint8_t high = read(adr + 1);
-  // TEMP: should convert to 16 bit the high and the low address
+
   PC = convertTo_16_bit(high, low);
 
   status = 0x24;
@@ -1304,7 +1304,6 @@ void Cpu::reset() {
 }
 
 void Cpu::push(uint8_t val) {
-  // UNSURE about correctness
   uint16_t temp = convertTo_16_bit(0x01, stack_pointer);
 
   write(temp, val);
@@ -1313,7 +1312,6 @@ void Cpu::push(uint8_t val) {
 }
 
 uint8_t Cpu::pull() {
-  // UNSURE about correctness
   stack_pointer++;
   uint16_t temp = convertTo_16_bit(0x01, stack_pointer);
 

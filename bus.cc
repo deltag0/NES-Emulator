@@ -43,6 +43,9 @@ void Bus::Cpu_write(uint16_t adr, uint8_t data) {
       controller.shifted_count = 0;
     }
   }
+  else if (adr >= 0x6000 && adr <= 0x7FFF) {
+    cartridge_ram[adr - 0x6000] = data;
+  }
 
 }
 
@@ -72,6 +75,9 @@ uint8_t Bus::Cpu_read(uint16_t adr, bool bReadOnly) {
       controller.shifted_count++;
       controller.input.reg >>= 1;
     }
+  }
+  else if (adr >= 0x6000 && adr <= 0x7FFF) {
+    data = cartridge_ram[adr - 0x6000];
   }
 
   return data;

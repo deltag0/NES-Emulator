@@ -37,17 +37,19 @@ Mapper_001::find_prg_mapped_addr(std::pair<uint16_t, uint16_t> &switch_range,
 uint32_t Mapper_001::find_chr_mapped_addr(uint16_t addr) {
   if (chr_bank_mode == 0x01) {
     if (CHR_SWITCH1.first <= addr && addr <= CHR_SWITCH1.second) {
-      return (addr & CHR_SWITCH1.first) + (chr_bank_0.reg & 0x1F) * CHR_BANK_SIZE;
+      return (addr - CHR_SWITCH1.first) + (chr_bank_0.reg & 0x1F) * CHR_BANK_SIZE;
     }
     else if (CHR_SWITCH2.first <= addr && addr <= CHR_SWITCH2.second) {
-      return (addr & CHR_SWITCH2.first) + (chr_bank_1.reg & 0x1F) * CHR_BANK_SIZE;
+      return (addr - CHR_SWITCH2.first) + (chr_bank_1.reg & 0x1F) * CHR_BANK_SIZE;
     }
     else {
       std::cout << "Address should not be out of the range of the switch intervals for CHR\n";
+      // TODO: throw error?
+      return 0;
     }
   }
   else {
-    return (addr & CHR_SWITCH1.first) + (chr_bank_0.reg & 0x1E) * CHR_BANK_SIZE;
+    return (addr - CHR_SWITCH1.first) + (chr_bank_0.reg & 0x1E) * CHR_BANK_SIZE;
   }
 }
 
@@ -121,14 +123,16 @@ void Mapper_001::write_to_control_register(uint8_t value) {
 }
 
 Mapper_001::Mapper_001(uint8_t nPRGBanks, uint8_t nCHRBanks)
-    : nPRGBanks{nPRGBanks}, nCHRBanks{nCHRBanks} {}
+    : nPRGBanks{nPRGBanks}, nCHRBanks{nCHRBanks} {
+      control.reg = 0x0C;
+    }
 
 bool Mapper_001::cpu_read_mapper(uint16_t adr, uint32_t &mapped_adr) {
   if (0xFFFF < adr || adr < 0x8000) return false;
   if (!double_block_mode) {
     std::pair<uint16_t, uint16_t> range =
         prg_bank_mode == 2 ? PRG_SWITCH2 : PRG_SWITCH1;
-    mapped_adr = static_cast<uint16_t>(find_prg_mapped_addr(range, adr));
+    mapped_adr = find_prg_mapped_addr(range, adr);
   }
   else {
     mapped_adr = (adr - PRG_SWITCH1.first) + PRG_BANK_SIZE * prg_bank_selected;

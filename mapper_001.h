@@ -56,7 +56,7 @@ private:
   // (i.e. bank mode set to 0/1)
   bool double_block_mode = false;
   // From 0-3
-  uint8_t prg_bank_mode = 0x00;
+  uint8_t prg_bank_mode = 3;
   // 32 max banks possible, but for now, we'll have less
   uint8_t prg_bank_selected = 0x00;
 

@@ -16,7 +16,7 @@
 class TestMapper_001 : public Mapper_001 {
 public:
   TestMapper_001()
-      : Mapper_001(4, 2) {} // Initialize with 4 PRG banks and 2 CHR banks
+      : Mapper_001(4, 4) {} // Initialize with 4 PRG banks and 2 CHR banks
 
   // Expose private members for testing
   using Mapper_001::chr_bank_0;
@@ -133,6 +133,30 @@ TEST_CASE("Mapper_001::cpu_write_mapper - Control Register Write") {
     CHECK(check_adr == 5);
 
 
+  mapper.reset();
+  // Test CHR switch 1 8KB at a time
+  result = mapper.cpu_write_mapper(0xA000, mapped_adr, 0x00);
+  result = mapper.cpu_write_mapper(0xA000, mapped_adr, 0x01);
+  result = mapper.cpu_write_mapper(0xA000, mapped_adr, 0x00);
+  result = mapper.cpu_write_mapper(0xA000, mapped_adr, 0x00);
+  result = mapper.cpu_write_mapper(0xA000, mapped_adr, 0x00);
+  // Testing the wrap around
+  result = mapper.cpu_write_mapper(0xA000, mapped_adr, 0x01);
+
+  result = mapper.ppu_read_mapper(0x0001, mapped_adr);
+  CHECK(mapped_adr == 8193);
+  result = mapper.ppu_read_mapper(0x1001, mapped_adr);
+  CHECK(mapped_adr == 12289);
+
+  result = mapper.cpu_write_mapper(test_addr, mapped_adr, 0x00);
+  result = mapper.cpu_write_mapper(test_addr, mapped_adr, 0x00);
+  result = mapper.cpu_write_mapper(test_addr, mapped_adr, 0x00);
+  result = mapper.cpu_write_mapper(test_addr, mapped_adr, 0x00);
+  result = mapper.cpu_write_mapper(test_addr, mapped_adr, 0x01);
+  result = mapper.ppu_read_mapper(0x0001, mapped_adr);
+  CHECK(mapped_adr == 12289);
+  result = mapper.ppu_read_mapper(0x1001, mapped_adr);
+  CHECK(mapped_adr == 0x001);
   }
 }
 
