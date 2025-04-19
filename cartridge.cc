@@ -65,13 +65,15 @@ Cartridge::Cartridge(const std::string &file) {
   if (file_type == 2) {
     // TODO:
   }
+
+  uint8_t argmt = header.mapper1 & 0x01;
   switch (nMapperID) {
   case 0:
     mapper = std::move(
-        std::unique_ptr<Mapper_000>{new Mapper_000{nPRGBanks, nCHRBanks}});
+        std::unique_ptr<Mapper_000>{new Mapper_000{nPRGBanks, nCHRBanks, argmt}});
     break;
   case 1:
-    mapper = std::move(std::unique_ptr<Mapper_001>{new Mapper_001(nPRGBanks, nCHRBanks)});
+    mapper = std::move(std::unique_ptr<Mapper_001>{new Mapper_001{nPRGBanks, nCHRBanks, argmt}});
     break;
   case 2:
     // TODO:
@@ -118,3 +120,9 @@ bool Cartridge::ppu_write(uint16_t adr, uint8_t val) {
   }
   return 0;
 }
+
+const Arangement Cartridge::get_argmt() const {
+  return mapper->get_name_tbl_argmt();
+}
+
+

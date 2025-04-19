@@ -109,7 +109,7 @@ public:
   }
 
   bool OnUserCreate() {
-    auto card = std::make_unique<Cartridge>("Legend of Zelda, The (U) (PRG1) [!].nes");
+    auto card = std::make_unique<Cartridge>("Castlevania II - Simon's Quest (USA).nes");
     nes.insert_card(std::move(card));
 
     /* mapAsm = nes.cpu.disassemble(0xC000, 0xFFFF); */

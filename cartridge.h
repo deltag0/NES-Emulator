@@ -36,6 +36,8 @@ public:
   bool ppu_read(uint16_t adr, uint8_t &data);
   bool ppu_write(uint16_t adr, uint8_t val);
 
+  const Arangement get_argmt() const;
+
   // NOTE: vPRGMemory should be private
   std::vector<uint8_t> vPRGMemory; // 16 KB
 
@@ -44,6 +46,7 @@ public:
 private:
   std::vector<uint8_t> vCHRMemory; // 8KB
 
+  int mapper_type;
   std::unique_ptr<Mapper> mapper;
   uint8_t nMapperID = 0;
   uint8_t nPRGMemoryID = 0;

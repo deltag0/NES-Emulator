@@ -1,10 +1,25 @@
 #include "mapper_000.h"
+#include "mapper.h"
 #include <cstdint>
-#include <ios>
-#include <iostream>
 
-Mapper_000::Mapper_000(uint8_t prg_banks, uint8_t chr_banks)
-    : nPRGBanks(prg_banks), nCHRBanks(chr_banks) {}
+Mapper_000::Mapper_000(uint8_t prg_banks, uint8_t chr_banks,
+                       uint8_t name_tbl_argmt)
+    : nPRGBanks(prg_banks), nCHRBanks(chr_banks) {
+  switch (name_tbl_argmt) {
+  case 0:
+    this->argmt = Arangement::VERTICAL;
+    break;
+  case 1:
+    this->argmt = Arangement::HORIZONTAL;
+    break;
+  }
+}
+
+
+const Arangement Mapper_000::get_name_tbl_argmt() const {
+  return argmt;
+}
+
 
 Mapper_000::~Mapper_000() {}
 
@@ -12,7 +27,7 @@ Mapper_000::~Mapper_000() {}
 // to the correct address, masking it
 // The cart can have much more PRG ROM memory than what the CPU can access,
 // so the memory is split into multiple parts. If there was 64KB of PRG ROM
-// then it could be split into 2 banks of 32KB fitting into 
+// then it could be split into 2 banks of 32KB fitting into
 // 0x8000 to 0xFFFF
 bool Mapper_000::cpu_read_mapper(uint16_t adr, uint32_t &mapped_adr) {
   if (adr >= 0x8000 && adr <= 0xFFFF) {
@@ -22,7 +37,8 @@ bool Mapper_000::cpu_read_mapper(uint16_t adr, uint32_t &mapped_adr) {
   return false;
 }
 
-bool Mapper_000::cpu_write_mapper(uint16_t adr, uint32_t &mapped_adr, uint8_t data) {
+bool Mapper_000::cpu_write_mapper(uint16_t adr, uint32_t &mapped_adr,
+                                  uint8_t data) {
   if (adr >= 0x8000 && adr <= 0xFFFF) {
     mapped_adr = adr & (nPRGBanks > 1 ? 0x7FFF : 0x3FFF);
     return true;

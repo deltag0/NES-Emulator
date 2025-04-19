@@ -11,6 +11,11 @@
 #define PRG_BANK_SIZE 0x4000
 #define CHR_BANK_SIZE 0x1000
 
+enum class Arangement: uint8_t {
+  VERTICAL,
+  HORIZONTAL,
+};
+
 // Parent class for the different kind of mappers on the NES
 class Mapper {
   public:
@@ -18,6 +23,8 @@ class Mapper {
   virtual bool cpu_write_mapper(uint16_t adr, uint32_t &mapped_adr, uint8_t data);
   virtual bool ppu_read_mapper(uint16_t adr, uint32_t &mapped_adr);
   virtual bool ppu_write_mapper(uint16_t adr, uint32_t &mapped_adr);
+
+  const virtual Arangement get_name_tbl_argmt() const = 0;
 
   virtual ~Mapper() = default;
 };

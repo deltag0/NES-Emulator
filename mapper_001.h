@@ -12,13 +12,15 @@ public:
   bool cpu_write_mapper(uint16_t adr, uint32_t &mapped_adr, uint8_t data) override;
   bool ppu_read_mapper(uint16_t adr, uint32_t &mapped_adr) override;
   bool ppu_write_mapper(uint16_t adr, uint32_t &mapped_adr) override;
+  const Arangement get_name_tbl_argmt() const override;
   virtual ~Mapper_001() {
   }
 
 // NOTE: this is temporary, and just for testing
 // It should be private
-  Mapper_001(uint8_t nPRGBanks, uint8_t nCHRBanks);
+  Mapper_001(uint8_t nPRGBanks, uint8_t nCHRBanks, uint8_t argmt);
 private:
+  Arangement argmt;
   uint8_t nPRGBanks;
   uint8_t nCHRBanks;
 

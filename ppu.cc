@@ -2,6 +2,7 @@
 #include "ppu.h"
 #include "bus.h"
 #include "cartridge.h"
+#include "mapper.h"
 #include <algorithm>
 #include <cstdint>
 #include <ios>
@@ -207,7 +208,7 @@ void Ppu::ppu_write(uint16_t adr, uint8_t val) {
     npatterns[(adr & 0x1000) >> 12][adr & 0x0FFF] = val;
   } else if (adr >= 0x2000 && adr <= 0x2FFF) {
     uint8_t name_table_idx = (v & 0x0C00) >> 10;
-    if (card->header.mapper1 & 0x01) {
+    if (card->get_argmt() == Arangement::HORIZONTAL) {
       if (name_table_idx == 2)
         name_table_idx = 0;
       if (name_table_idx == 3)
@@ -257,7 +258,7 @@ uint8_t Ppu::ppu_read(uint16_t adr, bool read) {
     data = npatterns[(adr & 0x1000) >> 12][adr & 0x0FFF];
   } else if (adr >= 0x2000 && adr <= 0x2FFF) {
     uint8_t name_table_idx = (v & 0x0C00) >> 10;
-    if (card->header.mapper1 & 0x01) {
+    if (card->get_argmt() == Arangement::HORIZONTAL) {
       if (name_table_idx == 2)
         name_table_idx = 0;
       if (name_table_idx == 3)

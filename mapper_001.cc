@@ -4,10 +4,16 @@
 #include <exception>
 #include <ios>
 #include <map>
+#include <stdexcept>
 #include <utility>
 #include <iostream>
 
-// TODO: I think I previously finished the mapping for CPU, but Not tested yet, so do that ya dumb sonofabitch, then PPU mapping and nametables
+Arangement find_argmt(uint8_t);
+
+const Arangement Mapper_001::get_name_tbl_argmt() const {
+  return argmt;
+}
+
 
 void Mapper_001::set_program_mode() {
   prg_bank_mode = (control.prg_bank_high << 1) | control.prg_bank_low;
@@ -100,9 +106,12 @@ void Mapper_001::write_to_control_register(uint8_t value) {
   case 0:
     control.nametable_low = bit;
     break;
-  case 1:
+  case 1: {
     control.nametable_high = bit;
+    uint8_t new_argmt = (control.nametable_high << 1) | control.nametable_low;
+    argmt = find_argmt(new_argmt);
     break;
+  }
   case 2: {
     control.prg_bank_low = bit;
     set_program_mode();
@@ -122,9 +131,18 @@ void Mapper_001::write_to_control_register(uint8_t value) {
   control.unused++;
 }
 
-Mapper_001::Mapper_001(uint8_t nPRGBanks, uint8_t nCHRBanks)
+Mapper_001::Mapper_001(uint8_t nPRGBanks, uint8_t nCHRBanks, uint8_t argmt)
     : nPRGBanks{nPRGBanks}, nCHRBanks{nCHRBanks} {
       control.reg = 0x0C;
+
+      switch (argmt) {
+        case 0:
+          this->argmt = Arangement::VERTICAL;
+          break;
+        case 1:
+          this->argmt = Arangement::HORIZONTAL;
+          break;
+      }
     }
 
 bool Mapper_001::cpu_read_mapper(uint16_t adr, uint32_t &mapped_adr) {
@@ -184,4 +202,16 @@ bool Mapper_001::ppu_write_mapper(uint16_t adr, uint32_t &mapped_adr) {
   return false;
 }
 
-
+Arangement find_argmt(uint8_t new_argmt) {
+  switch (new_argmt) {
+    case 0:
+      return Arangement::HORIZONTAL;
+    case 1:
+      return Arangement::HORIZONTAL;
+    case 2:
+      return Arangement::HORIZONTAL;
+    case 3:
+      return Arangement::VERTICAL;
+  }
+  throw std::runtime_error("Impossible path to reach");
+}
