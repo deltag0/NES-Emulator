@@ -33,8 +33,7 @@ Cartridge::Cartridge(const std::string &file) {
   if (header.name[0] == 'N' && header.name[1] == 'E' && header.name[2] == 'S' &&
       header.name[3] == 0x1A) {
     ;
-  }
-  else {
+  } else {
     throw std::runtime_error("File format is not ines\n");
   }
 
@@ -69,14 +68,16 @@ Cartridge::Cartridge(const std::string &file) {
   uint8_t argmt = header.mapper1 & 0x01;
   switch (nMapperID) {
   case 0:
-    mapper = std::move(
-        std::unique_ptr<Mapper_000>{new Mapper_000{nPRGBanks, nCHRBanks, argmt}});
+    mapper = std::move(std::unique_ptr<Mapper_000>{
+        new Mapper_000{nPRGBanks, nCHRBanks, argmt}});
     break;
   case 1:
-    mapper = std::move(std::unique_ptr<Mapper_001>{new Mapper_001{nPRGBanks, nCHRBanks, argmt}});
+    mapper = std::move(std::unique_ptr<Mapper_001>{
+        new Mapper_001{nPRGBanks, nCHRBanks, argmt}});
     break;
   case 2:
     // TODO:
+    std::cout << "not implemented\n";
     break;
   }
   assert(mapper.get());
@@ -85,8 +86,14 @@ Cartridge::Cartridge(const std::string &file) {
 // cpu_read will read from the cartridge program memory using the mapper
 bool Cartridge::cpu_read(uint16_t adr, uint8_t &data) {
   uint32_t mapped_adr{0};
+  Mapper_001 *mmc1 = dynamic_cast<Mapper_001 *>(mapper.get());
+
+  if (mmc1)
+    mmc1->prev_written = false;
+
   if (vPRGMemory.size() > 0 && mapper->cpu_read_mapper(adr, mapped_adr)) {
     data = vPRGMemory[mapped_adr];
+
     return true;
   }
 
@@ -96,9 +103,17 @@ bool Cartridge::cpu_read(uint16_t adr, uint8_t &data) {
 // cpu_write will write to the cartridge program memory using the mapper
 bool Cartridge::cpu_write(uint16_t adr, uint8_t data) {
   uint32_t mapped_adr{0};
+  Mapper_001 *mmc1 = dynamic_cast<Mapper_001 *>(mapper.get());
+
   if (mapper->cpu_write_mapper(adr, mapped_adr, data)) {
-    vPRGMemory[mapped_adr] = data;
+    if (mmc1) {
+      mmc1->prev_written = true;
+    }
     return true;
+  }
+
+  if (mmc1) {
+    mmc1->prev_written = false;
   }
   return false;
 }
@@ -124,5 +139,3 @@ bool Cartridge::ppu_write(uint16_t adr, uint8_t val) {
 const Arangement Cartridge::get_argmt() const {
   return mapper->get_name_tbl_argmt();
 }
-
-

@@ -10,6 +10,7 @@
 #include <fstream>
 #include <cmath>
 #include <memory>
+#include <fstream>
 
 // uint16_t has a max value of 2^16 -1 (highest index)
 #define MAX_MEMORY 2048

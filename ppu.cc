@@ -5,6 +5,7 @@
 #include "mapper.h"
 #include <algorithm>
 #include <cstdint>
+#include <float.h>
 #include <ios>
 #include <iostream>
 #include <memory>
@@ -235,7 +236,8 @@ void Ppu::ppu_write(uint16_t adr, uint8_t val) {
       adr = 0x0008;
     else if (adr == 0x001C)
       adr = 0x000C;
-    if ((mask.sprite_rendering && mask.bkg_rendering) && (adr == 0x0004 || adr == 0x0008 || adr == 0x000C)) {
+    if ((mask.sprite_rendering && mask.bkg_rendering) &&
+        (adr == 0x0004 || adr == 0x0008 || adr == 0x000C)) {
       adr = 0x0000; // Redirect to universal background color
     }
 
@@ -284,7 +286,8 @@ uint8_t Ppu::ppu_read(uint16_t adr, bool read) {
       adr = 0x0008;
     else if (adr == 0x001C)
       adr = 0x000C;
-    if ((mask.sprite_rendering && mask.bkg_rendering) && (adr == 0x0004 || adr == 0x0008 || adr == 0x000C)) {
+    if ((mask.sprite_rendering && mask.bkg_rendering) &&
+        (adr == 0x0004 || adr == 0x0008 || adr == 0x000C)) {
       adr = 0x0000; // Redirect to universal background color
     }
 
@@ -397,9 +400,6 @@ bool Ppu::clock() {
     uint8_t coarse_y = (v & 0b0000001111100000) >> 5;
     uint8_t fine_y = (v & 0b0111000000000000) >> 12;
     uint8_t curr_render_y = scanline;
-    /* std::cout << "SCANLINE " << static_cast<uint16_t>(scanline) << "\n"; */
-    /* std::cout << "Y " << static_cast<uint16_t>(coarse_y * 8 + fine_y) <<
-     * "\n"; */
 
     if (cycle >= 1 && cycle <= 256) {
       // doing this in less cycles because I wanted to
@@ -409,10 +409,17 @@ bool Ppu::clock() {
         }
 
         uint8_t sprite_idx = (cycle - 65) * 4;
+        if (oam[sprite_idx] != 0 && oam[sprite_idx] == 127) {
+          /* std::cout << std::hex << static_cast<uint16_t>(oam[sprite_idx + 1]) << "\n"; */
+        }
 
-        if (0 <= curr_render_y - oam[sprite_idx] &&
-            curr_render_y - oam[sprite_idx] <= 7 && secondary_oam.size() < 8) {
+        if (oam[sprite_idx] <= curr_render_y &&
+            curr_render_y <= 7 + oam[sprite_idx]  && secondary_oam.size() < 8) {
           secondary_oam.push(sprite_idx);
+        } else if (0 <= curr_render_y - oam[sprite_idx] &&
+                   curr_render_y - oam[sprite_idx] <= 7 &&
+                   secondary_oam.size() >= 8) {
+          status.sprite_overflow = true;
         }
       }
 
@@ -472,7 +479,7 @@ bool Ppu::clock() {
         sprite_shift.pop();
       }
 
-      // rendering the pixels for the current scanline (fine_y)
+      // rendering the pixels for the current scanline
       if (mask.bkg_rendering) {
         sprScreen->SetPixel(cycle - 1, curr_render_y,
                             get_palette_color(bkg_pixel, palette_bits));
@@ -512,9 +519,8 @@ bool Ppu::clock() {
         move_sprite_pixels(*render_sprite);
 
         // sprite 0 hit detection
-        if (check_sprite0_hit(*render_sprite, cycle - 1, bkg_pixel, pixel)) {
+        if (check_sprite0_hit(*render_sprite, cycle - 1, bkg_pixel, pixel))
           status.sprite_0_hit = 1;
-        }
       }
 
       while (render_sprites.size() > 0 &&
@@ -526,12 +532,10 @@ bool Ppu::clock() {
         fine_x++;
         update_render();
       }
+
       cycle++;
       total_cycles += 1;
     } else if (cycle >= 257 && cycle <= 320) {
-      // TODO: should only be able to have 8 sprites in the secondary OAM
-      // Apparently sprite overflow doesn't seem to be that impportant, so not
-      // implemented
       if (cycle == 257) {
         clear_sprite_shift();
         sort_secondary_oam();
@@ -609,6 +613,10 @@ bool Ppu::clock() {
       cycle++;
 
   } else if (scanline == 261) {
+    if (cycle >= 257 && cycle <= 320) {
+      oam_addr = 0;
+    }
+
     if (cycle == 340 && scanline == 261) {
       scanline = 0;
       frame_complete = true;
@@ -633,22 +641,13 @@ bool Ppu::clock() {
         v &= 0xF7FF;
         v |= t.nametable_high << 11;
       }
-    } 
+    }
 
     if (cycle != 340) {
       cycle++;
     }
   }
-  /* std::cout << "CYCLE: " << cycle << "\n"; */
-  /* std::cout << "CYCLE BUFFER " << buffer_cycles << "\n"; */
-  /* std::cout << "SCANLINE " << scanline << "\n"; */
-  /* std::cout << "PPU ADDR " << std::hex << v << "\n"; */
-  /* std::cout << "COARSE X " << std::hex << (v & 0x001F) << "\n"; */
-  /* std::cout << "FINE Y " << (v & 0x7000) << "\n"; */
-  /* uint8_t coarse_y = (v & 0b0000001111100000) >> 5; */
-  /* uint8_t fine_y = (v & 0b0111000000000000) >> 12; */
-  /* std::cout << "SCANLINE: " << static_cast<uint16_t>(scanline) << " " */
-  /*           << static_cast<uint16_t>(coarse_y * 8 + fine_y) << "\n"; */
+
   return return_val;
 }
 

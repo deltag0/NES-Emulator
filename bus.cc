@@ -1,5 +1,5 @@
 #include "bus.h"
-
+#include "logging.h"
 #include "cartridge.h"
 #include "controller.h"
 #include "cpu.h"
@@ -10,6 +10,7 @@
 #include <memory>
 
 #define CONTROLLER_POLL 0x4016
+#define CONTROLLER_POLL2 0x4016
 #define TRIGGER_OAM 0x4014
 
 Bus::Bus() : cpu{this}, ppu{}, dma{this, &ppu}  {}
@@ -21,7 +22,7 @@ void Bus::Cpu_write(uint16_t adr, uint8_t data) {
   // a CPU read/write, the cartridge has priority over the CPU
   if (card->cpu_write(adr, data)) {
   }
-  if (adr >= 0x0000 && adr <= 0x1FFF) { // the CPU has "mirrors until
+  else if (adr >= 0x0000 && adr <= 0x1FFF) { // the CPU has "mirrors until
     cpu_ram[adr & 0x07FF] = data;
   } else if (adr >= 0x2000 && adr <= 0x3FFF) {
     ppu.cpu_write(adr & 0x0007, data);
@@ -36,12 +37,13 @@ void Bus::Cpu_write(uint16_t adr, uint8_t data) {
     cpu.oam = true;
   }
   else if (adr == CONTROLLER_POLL) {
-    if (data == 1) { // signal controller to poll its input
-      controller.detect_input();
-    }
-    else {
+    bool strobe = data & 0x01;
+
+    controller.detect_input();
+    if (!strobe && controller.prev_strobe) {
       controller.shifted_count = 0;
     }
+    controller.prev_strobe = strobe;
   }
   else if (adr >= 0x6000 && adr <= 0x7FFF) {
     cartridge_ram[adr - 0x6000] = data;
@@ -67,10 +69,14 @@ uint8_t Bus::Cpu_read(uint16_t adr, bool bReadOnly) {
     return ppu.cpu_read(adr & 0x0007, bReadOnly);
   }
   else if (adr == CONTROLLER_POLL) {
-    if (controller.shifted_count == 8) {
-      return 0;
+
+    if (controller.prev_strobe) {
+      data = controller.input.a_button;
     }
-    else {
+    else if (controller.shifted_count >= 8) {
+      return 1;
+    }
+    else if (!controller.prev_strobe) {
       data = 0x01 & controller.input.reg;
       controller.shifted_count++;
       controller.input.reg >>= 1;

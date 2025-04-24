@@ -6,6 +6,7 @@
 #include "bus.h"
 #include "cpu.h"
 #include "logging.h"
+#include "mapper_001.h"
 
 #define DEBUG_CPU false
 
@@ -225,10 +226,6 @@ void Cpu::clock() {
   if (cycles == 0 && !oam) {
     opcode = read(PC);
 
-    if (DEBUG_CPU) {
-      debug_log_cpu(log, *this, nullptr, true);
-    }
-
     set_flag(FLAGS::U, 1);
     PC++;
 
@@ -238,8 +235,7 @@ void Cpu::clock() {
     cycles += additional_cycle;
     total_cycles += cycles;
     set_flag(FLAGS::U, 1);
-  }
-  else if (cycles == 0) {
+  } else if (cycles == 0) {
     // TODO: not exactly cycle accurate because it could have 514 cycles
     // but for doing this it would have to be cycle accurate
     cycles += 513;
@@ -258,12 +254,17 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
   uint8_t op_result = 0x00;
   switch (opcode) {
   case Opcode::BRK: {
-    // PC++; // not sure about this
+    PC++;
+
     cycles = 7;
-    set_flag(FLAGS::B, true);
     push(get_high(PC));
     push(get_low(PC));
+
+    set_flag(FLAGS::I, 1);
+    set_flag(FLAGS::B, 1);
     push(status);
+    set_flag(FLAGS::B, 0);
+
     uint16_t new_adr = convertTo_16_bit(read(0xFFFF), read(0xFFFE));
     PC = new_adr;
     break;
@@ -983,14 +984,12 @@ uint8_t Cpu::execute_opcode(Opcode opcode) {
     set_flag(FLAGS::C, accumulator & 0x01);
     accumulator = accumulator >> 1;
 
-    fetch();
-    set_flag(FLAGS::N, 0);
     set_flag(FLAGS::Z, accumulator == 0x00);
+    set_flag(FLAGS::N, accumulator & 0x80);
     return 0;
   }
   case Opcode::ROR_A: {
     cycles = 2;
-
 
     uint8_t temp = get_flag(FLAGS::C);
     set_flag(FLAGS::C,
@@ -1267,6 +1266,10 @@ void Cpu::nmi() {
 
   push(pc_high);
   push(pc_low);
+
+  set_flag(FLAGS::B, 0);
+  set_flag(FLAGS::U, 1);
+  set_flag(FLAGS::I, 1);
 
   push(status);
 
@@ -1619,13 +1622,15 @@ uint8_t Cpu::DEC() {
 }
 
 uint8_t Cpu::INC() {
-  uint16_t value = fetch();         // Fetch the value to increment
-  value += 1;                      // Increment the value
-  write(adr, value & 0x00FF);               // Write the incremented value back to memory
+  uint16_t value = fetch();   // Fetch the value to increment
+  value += 1;                 // Increment the value
+  write(adr, value & 0x00FF); // Write the incremented value back to memory
 
   // Update flags based on the incremented value
-  set_flag(FLAGS::Z, (value & 0x00FF) == 0);  // Zero flag is set if the result is 0
-  set_flag(FLAGS::N, value & 0x0080);  // Negative flag is set based on the new bit 7
+  set_flag(FLAGS::Z,
+           (value & 0x00FF) == 0); // Zero flag is set if the result is 0
+  set_flag(FLAGS::N,
+           value & 0x0080); // Negative flag is set based on the new bit 7
 
   return 0;
 }
@@ -1712,7 +1717,7 @@ uint8_t sign_extend(uint8_t x, int bit_count) {
 
 uint8_t get_low(uint16_t val) { return 0x00FF & val; }
 
-uint8_t get_high(uint16_t val) { return val >> 8; }
+uint8_t get_high(uint16_t val) { return (val >> 8) & 0x00FF; }
 
 /*
 Addressing modes:
@@ -1734,8 +1739,8 @@ register
 zero paging Y: 2 bytes, second byte is address & we add it to value in Y
 register
 
-Relative: 2 bytes. After instruction executes, check if 0 flag is set. If it is,
-we jump to new address
+Relative: 2 bytes. After instruction executes, check if 0 flag is set. If it
+is, we jump to new address
 
 Absolute: 3 bytes. The 2 bytes after the first are the full address
 
@@ -1745,18 +1750,18 @@ address from X register
 AbsoluteY: 3 bytes. The 2 bytes after the first are the full address & we add
 address from Y register
 
-Indirect: 3 bytes. First byte after the first is the least significant byte, and
-one after is most significant
+Indirect: 3 bytes. First byte after the first is the least significant byte,
+and one after is most significant
 
 i.e: If we have 0xAB, followed by 0xFF, address is 0xFFAB
 
-Indexed Indirect (ind_X): 2 bytes. Add address from Y with wraparound (probably
-will need function for that): This is an address. Value of that address is Low
-byte. Value of address right after is high byte. Combine them, and retrieve the
-value from memory
+Indexed Indirect (ind_X): 2 bytes. Add address from Y with wraparound
+(probably will need function for that): This is an address. Value of that
+address is Low byte. Value of address right after is high byte. Combine them,
+and retrieve the value from memory
 
-Indirect Indexed: 2 bytes. Value from second byte -> low byte. Value of address
-right after second byte -> high byte. Combine them to get an address. Add Y to
-the address with wraparound to the lower byte
+Indirect Indexed: 2 bytes. Value from second byte -> low byte. Value of
+address right after second byte -> high byte. Combine them to get an address.
+Add Y to the address with wraparound to the lower byte
 
 */

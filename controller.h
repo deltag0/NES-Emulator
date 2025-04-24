@@ -16,7 +16,8 @@ struct Controller {
       uint8_t right: 1;
     };
   } input;
-  uint8_t shifted_count = 0;
+  int shifted_count = 0;
+  bool prev_strobe = false;
 
   void detect_input();
   void detect_input_keyboard();

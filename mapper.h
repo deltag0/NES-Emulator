@@ -12,6 +12,8 @@
 #define CHR_BANK_SIZE 0x1000
 
 enum class Arangement: uint8_t {
+  LOWER,
+  HIGHER,
   VERTICAL,
   HORIZONTAL,
 };

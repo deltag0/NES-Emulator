@@ -41,13 +41,13 @@ public:
   // NOTE: vPRGMemory should be private
   std::vector<uint8_t> vPRGMemory; // 16 KB
 
+  std::unique_ptr<Mapper> mapper;
   // Cartridge is connected to CPU and PPU through a NOTE: mapper
   // The mapper is set up by the CPU and
 private:
   std::vector<uint8_t> vCHRMemory; // 8KB
 
   int mapper_type;
-  std::unique_ptr<Mapper> mapper;
   uint8_t nMapperID = 0;
   uint8_t nPRGMemoryID = 0;
   uint8_t nPRGBanks = 0;
